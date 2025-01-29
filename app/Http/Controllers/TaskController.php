@@ -9,34 +9,29 @@ class TaskController extends Controller
 {
     public function index()
     {
-        return response()->json(Task::all());
+        return response()->json(['data'=>Task::all()]);
     }
 
-    public function store(Request $request)
-    {
-
-            $validated = $request->validate([
-                'description' => 'required|string',
-                'is_completed' => 'nullable|boolean',
-            ]);
-    
-            $task = Task::create($validated);
-    
-            return response()->json($task, 201);
-
+    public function show($id) {
+        return Task::findOrFail($id);
     }
 
-    public function update(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'description' => 'nullable|string',
-            'is_completed' => 'nullable|boolean',
-        ]);
+    public function store(Request $request) {
+        $task = new Task();
+        $task->description = $request->description;
+        $task->is_completed = $request->is_completed;
+        $task->save();
+        
+        return response()->json($task, 201); // Возвращаем созданную задачу
+    }
 
+    public function update(Request $request, $id) {
         $task = Task::findOrFail($id);
-        $task->update($validated);
-
-        return response()->json($task);
+        $task->description = $request->description;
+        $task->is_completed = $request->is_completed;
+        $task->save();
+        
+        return response()->json($task); // Возвращаем обновленную задачу
     }
 
     public function destroy($id)

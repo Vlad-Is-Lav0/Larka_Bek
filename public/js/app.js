@@ -30643,75 +30643,6 @@ module.exports = Array.isArray || function (arr) {
 
 /***/ }),
 
-/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/TaskList.vue?vue&type=script&lang=js":
-/*!***************************************************************************************************************************************************************************************************************************!*\
-  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/TaskList.vue?vue&type=script&lang=js ***!
-  \***************************************************************************************************************************************************************************************************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
-/* harmony export */ });
-/* harmony import */ var _taskItem_vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./taskItem.vue */ "./resources/js/components/taskItem.vue");
-
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
-  name: "taskList",
-  components: {
-    taskItem: _taskItem_vue__WEBPACK_IMPORTED_MODULE_0__["default"]
-  },
-  data: function data() {
-    return {
-      tasks: [],
-      // Список задач
-      filter: "all",
-      // Фильтр
-      filters: ["Все", "Выполненые", "Не выполнены"]
-    };
-  },
-  computed: {
-    filteredTasks: function filteredTasks() {
-      if (this.filter === "completed") {
-        return this.tasks.filter(function (task) {
-          return task.is_completed;
-        });
-      } else if (this.filter === "not completed") {
-        return this.tasks.filter(function (task) {
-          return !task.is_completed;
-        });
-      }
-      return this.tasks;
-    }
-  },
-  methods: {
-    fetchTasks: function fetchTasks() {
-      var _this = this;
-      fetch("/api/tasks").then(function (res) {
-        return res.json();
-      }).then(function (data) {
-        _this.tasks = data;
-      });
-    },
-    editTask: function editTask(id) {
-      this.$router.push("/tasks/edit/".concat(id));
-    },
-    deleteTask: function deleteTask(id) {
-      var _this2 = this;
-      fetch("/api/tasks/".concat(id), {
-        method: "DELETE"
-      }).then(function () {
-        return _this2.fetchTasks();
-      });
-    }
-  },
-  mounted: function mounted() {
-    this.fetchTasks();
-  }
-});
-
-/***/ }),
-
 /***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/appComponent.vue?vue&type=script&lang=js":
 /*!*******************************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/appComponent.vue?vue&type=script&lang=js ***!
@@ -30742,6 +30673,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   name: "taskForm",
+  // task хранит описание задачи и ее статус
   data: function data() {
     return {
       task: {
@@ -30750,39 +30682,62 @@ __webpack_require__.r(__webpack_exports__);
       }
     };
   },
+  //В computed свойстве isEditMode вы проверяете, есть ли параметр id в маршруте. Если есть, значит, вы находитесь в режиме редактирования.
   computed: {
     isEditMode: function isEditMode() {
       return !!this.$route.params.id;
     }
   },
+  //Метод fetchTask: В mounted() вызывается метод fetchTask, который получает данные задачи с сервера, если это режим редактирования.
+  mounted: function mounted() {
+    this.fetchTask();
+  },
   methods: {
     fetchTask: function fetchTask() {
       var _this = this;
+      // Проверяем, находимся ли мы в режиме редактирования (когда есть параметр id в URL)
       if (this.isEditMode) {
-        fetch("/api/tasks/".concat(this.$route.params.id)).then(function (res) {
-          return res.json();
-        }).then(function (data) {
-          _this.task = data;
+        // Устанавливаем флаг загрузки в true, чтобы показать, что данные загружаются
+        this.isLoading = true;
+        // Выполняем GET-запрос с использованием axios для получения данных задачи по ID
+        axios.get("/api/tasks/".concat(this.$route.params.id)).then(function (response) {
+          // Если запрос успешен, присваиваем данные задачи переменной task
+          _this.task = response.data;
+          // После получения данных о задаче, убираем флаг загрузки
+          _this.isLoading = false;
+        })["catch"](function (error) {
+          _this.error = "Ошибка при загрузке задачи.";
+          // Убираем флаг загрузки, так как запрос завершен (ошибкой или успехом)
+          _this.isLoading = false;
         });
       }
     },
+    // submitForm(). Этот метод отвечает за отправку формы с задачей на сервер, с учетом того, является ли задача новой или редактируемой.
     submitForm: function submitForm() {
       var _this2 = this;
-      var url = this.isEditMode ? "/api/tasks/".concat(this.$route.params.id) : "/api/tasks";
-      var method = this.isEditMode ? "PUT" : "POST";
-      fetch(url, {
+      var url;
+      var method;
+      if (this.isEditMode) {
+        url = "/api/tasks/".concat(this.$route.params.id);
+        method = "put";
+      } else {
+        url = "/api/tasks";
+        method = "post";
+      }
+      this.isLoading = true;
+      axios({
         method: method,
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(this.task)
+        url: url,
+        data: this.task
       }).then(function () {
-        return _this2.$router.push("/tasks");
+        _this2.isLoading = false;
+        _this2.$router.push("/tasks");
+      })["catch"](function (error) {
+        _this2.isLoading = false;
+        _this2.error = "Ошибка при сохранении задачи.";
+        console.error("Ошибка:", error);
       });
     }
-  },
-  mounted: function mounted() {
-    this.fetchTask();
   }
 });
 
@@ -30808,51 +30763,113 @@ __webpack_require__.r(__webpack_exports__);
       type: Object,
       required: true
     }
+  },
+  methods: {
+    // Метод для форматирования даты
+    formatDate: function formatDate(date) {
+      var options = {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric'
+      };
+      return new Date(date).toLocaleString("ru-RU", options);
+    }
   }
 });
 
 /***/ }),
 
-/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/TaskList.vue?vue&type=template&id=0afd8bae":
-/*!*******************************************************************************************************************************************************************************************************************************************************************************************************!*\
-  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/TaskList.vue?vue&type=template&id=0afd8bae ***!
-  \*******************************************************************************************************************************************************************************************************************************************************************************************************/
+/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/taskList.vue?vue&type=script&lang=js":
+/*!***************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/taskList.vue?vue&type=script&lang=js ***!
+  \***************************************************************************************************************************************************************************************************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   render: () => (/* binding */ render)
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
+/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
+/* harmony import */ var _taskItem_vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./taskItem.vue */ "./resources/js/components/taskItem.vue");
 
-var _hoisted_1 = /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", null, "Список задач", -1 /* HOISTED */);
-var _hoisted_2 = /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", null, [/*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tr", null, [/*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Описание"), /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Статус"), /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Дата создания"), /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Действия")])], -1 /* HOISTED */);
-function render(_ctx, _cache, $props, $setup, $data, $options) {
-  var _component_v_select = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-select");
-  var _component_task_item = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("task-item");
-  var _component_v_table = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-table");
-  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", null, [_hoisted_1, (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_select, {
-    modelValue: $data.filter,
-    "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
-      return $data.filter = $event;
-    }),
-    items: $data.filters,
-    label: "Фильтр по статусу"
-  }, null, 8 /* PROPS */, ["modelValue", "items"]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_table, null, {
-    "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
-      return [_hoisted_2, (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", null, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($options.filteredTasks, function (task) {
-        return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(_component_task_item, {
-          key: task.id,
-          task: task,
-          onEdit: $options.editTask,
-          onDelete: $options.deleteTask
-        }, null, 8 /* PROPS */, ["task", "onEdit", "onDelete"]);
-      }), 128 /* KEYED_FRAGMENT */))])];
-    }),
-    _: 1 /* STABLE */
-  })]);
-}
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
+  name: "taskList",
+  components: {
+    taskItem: _taskItem_vue__WEBPACK_IMPORTED_MODULE_0__["default"]
+  },
+  data: function data() {
+    return {
+      tasks: [],
+      // Список задач
+      const_tasks: [],
+      // Список задач
+      filter: "Все",
+      // Фильтр
+      filters: ["Все", "Выполненые", "Не выполнены"]
+    };
+  },
+  computed: {
+    filteredTasks: function filteredTasks() {
+      var _this = this;
+      var is_task = [];
+      if (this.tasks != undefined) {
+        this.tasks.forEach(function (item) {
+          if (_this.filter === "Выполненые") {
+            if (item.is_completed == '1') is_task.push(item);
+          }
+          if (_this.filter === "Не выполнены") {
+            if (item.is_completed == '0') is_task.push(item);
+          }
+          if (_this.filter === "Все") {
+            is_task.push(item);
+          }
+        });
+        console.log(is_task);
+      }
+      return is_task;
+    }
+  },
+  mounted: function mounted() {
+    this.fetchTasks();
+  },
+  methods: {
+    //Используется стандартный fetch, чтобы отправить GET-запрос на URL /api/tasks, затем парсится ответ в формат JSON и сохраняется в this.tasks.
+    fetchTasks: function fetchTasks() {
+      var _this2 = this;
+      axios__WEBPACK_IMPORTED_MODULE_1__["default"].get("/api/tasks") // Отправляем GET-запрос
+      .then(function (res) {
+        // Обрабатываем успешный ответ
+        _this2.tasks = res.data.data; // Сохраняем данные в свойство tasks
+        _this2.const_tasks = res.data.data; // Создаем неизменяемую копию данных
+      })["catch"](function (res) {
+        // Обрабатываем ошибку
+        console.log(res); // Логируем ошибку в консоль
+      });
+    },
+    //Метод для редактирования задачи. Он перенаправляет пользователя на страницу редактирования задачи с использованием Vue Router, передавая id задачи.
+    editTask: function editTask(id) {
+      this.$router.push("/tasks/edit/".concat(id));
+    },
+    //Метод для удаления задачи. Отправляется DELETE-запрос на сервер для удаления задачи с соответствующим id.
+    //После этого список задач обновляется с помощью вызова fetchTasks.
+    deleteTask: function deleteTask(id) {
+      var _this3 = this;
+      axios__WEBPACK_IMPORTED_MODULE_1__["default"]["delete"]("/api/tasks/".concat(id)) // Отправляем DELETE-запрос
+      .then(function () {
+        return _this3.fetchTasks();
+      }) // После успешного удаления обновляем список задач
+      ["catch"](function (error) {
+        console.error(error); // Обрабатываем ошибку
+      });
+    }
+  }
+  //Это жизненный цикл Vue, который выполняется после того,
+  // как компонент был вставлен в DOM. В этом методе вызывается fetchTasks(), чтобы загрузить список задач при монтировании компонента.
+});
 
 /***/ }),
 
@@ -30870,6 +30887,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
 
 function render(_ctx, _cache, $props, $setup, $data, $options) {
+  var _component_router_link = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("router-link");
   var _component_v_toolbar_title = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-toolbar-title");
   var _component_v_spacer = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-spacer");
   var _component_v_btn = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-btn");
@@ -30883,20 +30901,29 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
         "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
           return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_toolbar_title, null, {
             "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
-              return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Лист")];
+              return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_router_link, {
+                to: "/"
+              }, {
+                "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
+                  return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Лист")];
+                }),
+                _: 1 /* STABLE */
+              })];
             }),
             _: 1 /* STABLE */
           }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_spacer), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_btn, {
-            to: "/tasks",
-            text: ""
+            density: "comfortable",
+            variant: "outlined",
+            to: "/tasks"
           }, {
             "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
               return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Список задач")];
             }),
             _: 1 /* STABLE */
           }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_btn, {
-            to: "/tasks/add",
-            text: ""
+            density: "comfortable",
+            variant: "outlined",
+            to: "/tasks/add"
           }, {
             "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
               return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Добавить задачу")];
@@ -30931,8 +30958,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
 
+var _hoisted_1 = {
+  "class": "input-group mb-3"
+};
+var _hoisted_2 = /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("span", {
+  "class": "input-group-text",
+  id: "basic-addon1"
+}, "Описание", -1 /* HOISTED */);
 function render(_ctx, _cache, $props, $setup, $data, $options) {
-  var _component_v_text_field = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-text-field");
   var _component_v_switch = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-switch");
   var _component_v_btn = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-btn");
   var _component_v_form = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-form");
@@ -30940,14 +30973,17 @@ function render(_ctx, _cache, $props, $setup, $data, $options) {
     onSubmit: (0,vue__WEBPACK_IMPORTED_MODULE_0__.withModifiers)($options.submitForm, ["prevent"])
   }, {
     "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
-      return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_text_field, {
-        modelValue: $data.task.description,
+      return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("div", _hoisted_1, [_hoisted_2, (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("input", {
+        type: "text",
+        "class": "form-control",
+        placeholder: "Введите описание задачи",
         "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
           return $data.task.description = $event;
         }),
-        label: "Описание",
+        "aria-label": "Описание задачи",
+        "aria-describedby": "basic-addon1",
         required: ""
-      }, null, 8 /* PROPS */, ["modelValue"]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_switch, {
+      }, null, 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelText, $data.task.description]])]), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_switch, {
         modelValue: $data.task.is_completed,
         "onUpdate:modelValue": _cache[1] || (_cache[1] = function ($event) {
           return $data.task.is_completed = $event;
@@ -30984,26 +31020,70 @@ __webpack_require__.r(__webpack_exports__);
 
 function render(_ctx, _cache, $props, $setup, $data, $options) {
   var _component_v_btn = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-btn");
-  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.task.description), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.task.is_completed ? "Выполнено" : "Не выполнено"), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.task.created_at), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_btn, {
+  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("tr", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Отображение ID задачи "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.task.id), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Отображение описания задачи "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.task.description), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Отображение статуса выполнения задачи "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($props.task.is_completed ? "Выполнено" : "Не выполнено"), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Отображение даты создания задачи "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)($options.formatDate($props.task.created_at)), 1 /* TEXT */), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Форматируем дату "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Кнопки для редактирования и удаления задачи "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("td", null, [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_btn, {
     onClick: _cache[0] || (_cache[0] = function ($event) {
       return _ctx.$emit('edit', $props.task.id);
-    })
-  }, {
-    "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
-      return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Редактировать")];
     }),
-    _: 1 /* STABLE */
+    variant: "outlined",
+    color: "green",
+    text: "Редактировать"
   }), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createVNode)(_component_v_btn, {
-    color: "red",
     onClick: _cache[1] || (_cache[1] = function ($event) {
       return _ctx.$emit('delete', $props.task.id);
-    })
+    }),
+    variant: "outlined",
+    color: "red",
+    text: "Удалить"
+  })])]);
+}
+
+/***/ }),
+
+/***/ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/taskList.vue?vue&type=template&id=0132378e":
+/*!*******************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/taskList.vue?vue&type=template&id=0132378e ***!
+  \*******************************************************************************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* binding */ render)
+/* harmony export */ });
+/* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue */ "./node_modules/vue/dist/vue.esm-bundler.js");
+
+var _hoisted_1 = /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("h1", null, "Список задач", -1 /* HOISTED */);
+var _hoisted_2 = ["value"];
+var _hoisted_3 = /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("thead", null, [/*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tr", null, [/*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Номер задачи"), /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Описание"), /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Статус"), /*#__PURE__*/(0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("th", null, "Дата создания")])], -1 /* HOISTED */);
+function render(_ctx, _cache, $props, $setup, $data, $options) {
+  var _component_task_item = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("task-item");
+  var _component_v_table = (0,vue__WEBPACK_IMPORTED_MODULE_0__.resolveComponent)("v-table");
+  return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("div", null, [_hoisted_1, (0,vue__WEBPACK_IMPORTED_MODULE_0__.withDirectives)((0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("select", {
+    "onUpdate:modelValue": _cache[0] || (_cache[0] = function ($event) {
+      return $data.filter = $event;
+    }),
+    "class": "form-select",
+    "aria-label": "Фильтр по статусу"
+  }, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($data.filters, function (filterOption, index) {
+    return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)("option", {
+      key: index,
+      value: filterOption
+    }, (0,vue__WEBPACK_IMPORTED_MODULE_0__.toDisplayString)(filterOption), 9 /* TEXT, PROPS */, _hoisted_2);
+  }), 128 /* KEYED_FRAGMENT */))], 512 /* NEED_PATCH */), [[vue__WEBPACK_IMPORTED_MODULE_0__.vModelSelect, $data.filter]]), $data.tasks != [] ? ((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(_component_v_table, {
+    key: 0
   }, {
     "default": (0,vue__WEBPACK_IMPORTED_MODULE_0__.withCtx)(function () {
-      return [(0,vue__WEBPACK_IMPORTED_MODULE_0__.createTextVNode)("Удалить")];
+      return [_hoisted_3, (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Директива Vue для циклического отображения элементов массива filteredTasks "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" Каждый элемент массива передается в переменную task "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)(" :task=\"task\" Пропс. Передает объект task (одна задача из массива filteredTasks) в дочерний компонент task-item "), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementVNode)("tbody", null, [((0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(true), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createElementBlock)(vue__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,vue__WEBPACK_IMPORTED_MODULE_0__.renderList)($options.filteredTasks, function (task) {
+        return (0,vue__WEBPACK_IMPORTED_MODULE_0__.openBlock)(), (0,vue__WEBPACK_IMPORTED_MODULE_0__.createBlock)(_component_task_item, {
+          key: task.id,
+          task: task,
+          onEdit: $options.editTask,
+          onDelete: $options.deleteTask
+        }, null, 8 /* PROPS */, ["task", "onEdit", "onDelete"]);
+      }), 128 /* KEYED_FRAGMENT */))])];
     }),
     _: 1 /* STABLE */
-  })])]);
+  })) : (0,vue__WEBPACK_IMPORTED_MODULE_0__.createCommentVNode)("v-if", true)]);
 }
 
 /***/ }),
@@ -31147,14 +31227,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var vue_router__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! vue-router */ "./node_modules/vue-router/dist/vue-router.mjs");
-/* harmony import */ var _components_TaskList_vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./components/TaskList.vue */ "./resources/js/components/TaskList.vue");
+/* harmony import */ var _components_taskList_vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./components/taskList.vue */ "./resources/js/components/taskList.vue");
 /* harmony import */ var _components_taskForm_vue__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./components/taskForm.vue */ "./resources/js/components/taskForm.vue");
 
 
 
 var routes = [{
   path: '/tasks',
-  component: _components_TaskList_vue__WEBPACK_IMPORTED_MODULE_0__["default"]
+  component: _components_taskList_vue__WEBPACK_IMPORTED_MODULE_0__["default"]
 }, {
   path: '/tasks/add',
   component: _components_taskForm_vue__WEBPACK_IMPORTED_MODULE_1__["default"]
@@ -34499,34 +34579,6 @@ exports["default"] = (sfc, props) => {
 
 /***/ }),
 
-/***/ "./resources/js/components/TaskList.vue":
-/*!**********************************************!*\
-  !*** ./resources/js/components/TaskList.vue ***!
-  \**********************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
-/* harmony export */ });
-/* harmony import */ var _TaskList_vue_vue_type_template_id_0afd8bae__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./TaskList.vue?vue&type=template&id=0afd8bae */ "./resources/js/components/TaskList.vue?vue&type=template&id=0afd8bae");
-/* harmony import */ var _TaskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./TaskList.vue?vue&type=script&lang=js */ "./resources/js/components/TaskList.vue?vue&type=script&lang=js");
-/* harmony import */ var C_OSPanel_domains_laravel_node_modules_vue_loader_dist_exportHelper_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./node_modules/vue-loader/dist/exportHelper.js */ "./node_modules/vue-loader/dist/exportHelper.js");
-
-
-
-
-;
-const __exports__ = /*#__PURE__*/(0,C_OSPanel_domains_laravel_node_modules_vue_loader_dist_exportHelper_js__WEBPACK_IMPORTED_MODULE_2__["default"])(_TaskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_1__["default"], [['render',_TaskList_vue_vue_type_template_id_0afd8bae__WEBPACK_IMPORTED_MODULE_0__.render],['__file',"resources/js/components/TaskList.vue"]])
-/* hot reload */
-if (false) {}
-
-
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (__exports__);
-
-/***/ }),
-
 /***/ "./resources/js/components/appComponent.vue":
 /*!**************************************************!*\
   !*** ./resources/js/components/appComponent.vue ***!
@@ -34611,19 +34663,31 @@ if (false) {}
 
 /***/ }),
 
-/***/ "./resources/js/components/TaskList.vue?vue&type=script&lang=js":
-/*!**********************************************************************!*\
-  !*** ./resources/js/components/TaskList.vue?vue&type=script&lang=js ***!
-  \**********************************************************************/
+/***/ "./resources/js/components/taskList.vue":
+/*!**********************************************!*\
+  !*** ./resources/js/components/taskList.vue ***!
+  \**********************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_TaskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_0__["default"])
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_TaskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./TaskList.vue?vue&type=script&lang=js */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/TaskList.vue?vue&type=script&lang=js");
- 
+/* harmony import */ var _taskList_vue_vue_type_template_id_0132378e__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./taskList.vue?vue&type=template&id=0132378e */ "./resources/js/components/taskList.vue?vue&type=template&id=0132378e");
+/* harmony import */ var _taskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./taskList.vue?vue&type=script&lang=js */ "./resources/js/components/taskList.vue?vue&type=script&lang=js");
+/* harmony import */ var C_OSPanel_domains_laravel_node_modules_vue_loader_dist_exportHelper_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./node_modules/vue-loader/dist/exportHelper.js */ "./node_modules/vue-loader/dist/exportHelper.js");
+
+
+
+
+;
+const __exports__ = /*#__PURE__*/(0,C_OSPanel_domains_laravel_node_modules_vue_loader_dist_exportHelper_js__WEBPACK_IMPORTED_MODULE_2__["default"])(_taskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_1__["default"], [['render',_taskList_vue_vue_type_template_id_0132378e__WEBPACK_IMPORTED_MODULE_0__.render],['__file',"resources/js/components/taskList.vue"]])
+/* hot reload */
+if (false) {}
+
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (__exports__);
 
 /***/ }),
 
@@ -34675,19 +34739,19 @@ __webpack_require__.r(__webpack_exports__);
 
 /***/ }),
 
-/***/ "./resources/js/components/TaskList.vue?vue&type=template&id=0afd8bae":
-/*!****************************************************************************!*\
-  !*** ./resources/js/components/TaskList.vue?vue&type=template&id=0afd8bae ***!
-  \****************************************************************************/
+/***/ "./resources/js/components/taskList.vue?vue&type=script&lang=js":
+/*!**********************************************************************!*\
+  !*** ./resources/js/components/taskList.vue?vue&type=script&lang=js ***!
+  \**********************************************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   render: () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_TaskList_vue_vue_type_template_id_0afd8bae__WEBPACK_IMPORTED_MODULE_0__.render)
+/* harmony export */   "default": () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_taskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_0__["default"])
 /* harmony export */ });
-/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_TaskList_vue_vue_type_template_id_0afd8bae__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./TaskList.vue?vue&type=template&id=0afd8bae */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/TaskList.vue?vue&type=template&id=0afd8bae");
-
+/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_taskList_vue_vue_type_script_lang_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./taskList.vue?vue&type=script&lang=js */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/taskList.vue?vue&type=script&lang=js");
+ 
 
 /***/ }),
 
@@ -34735,6 +34799,22 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   render: () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_taskItem_vue_vue_type_template_id_11a680fa__WEBPACK_IMPORTED_MODULE_0__.render)
 /* harmony export */ });
 /* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_taskItem_vue_vue_type_template_id_11a680fa__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./taskItem.vue?vue&type=template&id=11a680fa */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/taskItem.vue?vue&type=template&id=11a680fa");
+
+
+/***/ }),
+
+/***/ "./resources/js/components/taskList.vue?vue&type=template&id=0132378e":
+/*!****************************************************************************!*\
+  !*** ./resources/js/components/taskList.vue?vue&type=template&id=0132378e ***!
+  \****************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* reexport safe */ _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_taskList_vue_vue_type_template_id_0132378e__WEBPACK_IMPORTED_MODULE_0__.render)
+/* harmony export */ });
+/* harmony import */ var _node_modules_laravel_mix_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_use_0_node_modules_vue_loader_dist_templateLoader_js_ruleSet_1_rules_2_node_modules_vue_loader_dist_index_js_ruleSet_0_use_0_taskList_vue_vue_type_template_id_0132378e__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!../../../node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!../../../node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./taskList.vue?vue&type=template&id=0132378e */ "./node_modules/laravel-mix/node_modules/babel-loader/lib/index.js??clonedRuleSet-5.use[0]!./node_modules/vue-loader/dist/templateLoader.js??ruleSet[1].rules[2]!./node_modules/vue-loader/dist/index.js??ruleSet[0].use[0]!./resources/js/components/taskList.vue?vue&type=template&id=0132378e");
 
 
 /***/ }),
