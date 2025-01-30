@@ -10,12 +10,12 @@ use App\Services\MoySkladService;
 class TaskController extends Controller
 {
     protected $moySkladService;
-
+    // Конструктор для инъекции сервиса MoySkladService
     public function __construct(MoySkladService $moySkladService)
     {
         $this->moySkladService = $moySkladService;
     }
-
+    
     // Получить все задачи с МойСклад
     public function getTasks()
     {
@@ -25,35 +25,99 @@ class TaskController extends Controller
         // Возвращаем задачи на фронт
         return response()->json($tasks);
     }
-
-    // Создать задачу на МойСклад и сохранить в базе данных
-    public function createTask(Request $request)
+    
+    //Получение всех задач
+    
+    public function index()
     {
-        // Получаем токен из настроек
-        $settings = MainSettings::first();
-        $ms_token = $settings->ms_token;
-
-        // Делаем запрос на создание задачи в МойСклад
-        $taskData = [
-            'name' => $request->input('name'),
-            'description' => $request->input('description'),
-            // добавьте другие необходимые поля
-        ];
-
-        // Отправляем данные в МойСклад
-        $createdTask = $this->moySkladService->createTask($taskData);
-
-        if ($createdTask && isset($createdTask['id'])) {
-            // Если задача успешно создана, сохраняем в базе данных
-            $task = new Task();
-            $task->ms_task_id = $createdTask['id'];
-            $task->name = $createdTask['name'];
-            $task->description = $createdTask['description'];
-            $task->save();
-
-            return response()->json($task, 201); // Возвращаем данные задачи
-        }
-
-        return response()->json(['error' => 'Ошибка создания задачи в МойСклад'], 400);
+        // Возвращаем все задачи
+        return response()->json(['data' => Task::all()]);
     }
+    
+    //Получение одной задачи
+    
+    public function show($id)
+    {
+        // Получаем задачу по ID или ошибка 404
+        return Task::findOrFail($id);
+    }
+    
+    //Создание задачи локально и синхронизация с МойСклад
+    
+    public function store(Request $request)
+    {
+        // Создаем локальную задачу
+        $task = new Task();
+        $task->description = $request->description;
+        $task->is_completed = $request->is_completed;
+        $task->save();
+        // Подготовка данных для МойСклад
+        $data = [
+            'name' => $task->description, // Название задачи
+            'description' => $task->description, // Описание задачи
+            'dueDate' => date(DATE_ATOM, strtotime($request->due_date)), // Дата выполнения в ISO 8601
+        ];
+        // Создаем задачу в МойСклад
+        $response = $this->moySkladService->createTask($data);
+        if (!$response || isset($response['errors'])) {
+            return response()->json([
+                'message' => 'Ошибка при создании задачи в МойСклад',
+                'error' => $response['errors'] ?? 'Неизвестная ошибка'
+            ], 400);
+        }
+        // Сохраняем информацию о задаче из МойСклад (ID задачи)
+        if ($response && isset($response['id'])) {
+            $task->moysklad_task_id = $response['id'];
+            $task->save();
+        }
+        return response()->json($task, 201); // Возвращаем созданную задачу
+    }
+
+    
+    // Обновление задачи локально и в МойСклад
+     
+    public function update(Request $request, $id)
+    {
+        // Находим задачу по ID
+        $task = Task::findOrFail($id);
+        // Обновляем данные локальной задачи
+        $task->description = $request->description;
+        $task->is_completed = $request->is_completed;
+        $task->due_date = $request->due_date ? date(DATE_ATOM, strtotime($request->due_date)) : null;
+        $task->save();
+        // Подготовка данных для обновления в МойСклад
+        $data = [
+            'name' => $task->description, // Название задачи
+            'description' => $task->description, // Описание задачи
+            'dueDate' => $task->due_date,  // Дата
+        ];
+        // Обновляем задачу в МойСклад
+        $response = $this->moySkladService->updateTask($task->moysklad_task_id, $data);
+        // Проверяем, успешно ли обновление в МойСклад
+        if (!$response || isset($response['errors'])) {
+            return response()->json([
+            'message' => 'Ошибка при обновлении задачи в МойСклад',
+            'error' => $response['errors'] ?? 'Неизвестная ошибка'
+        ], 400);
+    }
+        return response()->json($task); // Возвращаем обновленную задачу
+    }
+
+    
+    //Удаление задачи локально и из МойСклад
+    
+    public function destroy($id)
+{
+    // Находим задачу по ID
+    $task = Task::findOrFail($id);
+    // Удаляем задачу из МойСклад
+    $isDeleted = $this->moySkladService->deleteTask($task->moysklad_task_id);
+    // Если задача успешно удалена в МойСклад, удаляем её и локально
+    if ($isDeleted) {
+        $task->delete();
+        return response()->json(null, 204); // Возвращаем пустой ответ после удаления
+    }
+    // Если не удалось удалить задачу в МойСклад, возвращаем ошибку
+    return response()->json(['message' => 'Ошибка при удалении задачи в МойСклад'], 400);
+}
 }
