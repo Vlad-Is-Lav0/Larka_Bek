@@ -6,13 +6,13 @@ use Illuminate\Support\Facades\Http;
 
 class MoySkladService
 {
-    protected $baseUrl = 'https://api.moysklad.ru/api/remap/1.2';
-    protected $token = 'ad5bfe0e27db11b9e886b2ee11327d719cea9c3b';
+    protected $baseUrl = 'https://api.moysklad.ru/api/remap/1.3';
+    protected $token;
 
     // Конструктор для передачи токена
-    public function __construct($token)
+    public function __construct($token = null)
     {
-        $this->token = $token;
+        $this->token = $token ?? env('MOYSKlad_API_Token');  // Если токен не передан, берем из .env
     }
 
     
@@ -46,10 +46,22 @@ class MoySkladService
     
     public function updateTask($taskId, $data)
     {
-        $response = Http::withToken($this->token)
-            ->put($this->baseUrl . '/entity/task/' . $taskId, $data);
+        $url = "https://online.moysklad.ru/api/remap/1.3/entity/task/{$taskId}";
+    
+        // Отправка запроса
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->token, // Используем токен из конструктора
+        ])->put($url, $data);
 
-        return $response->json();
+        // Проверяем, успешен ли ответ
+        if ($response->successful()) {
+            return $response->json(); // Возвращаем данные от МойСклад
+        }
+
+        // Обрабатываем ошибку
+        return [
+            'errors' => $response->json() // Ошибки от API
+        ];
     }
 
     public function deleteTask($taskId)
