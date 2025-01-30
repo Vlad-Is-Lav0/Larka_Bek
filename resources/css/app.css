@@ -1,8 +1,2 @@
 @import '~vuetify/styles';
 @import '~@mdi/font/css/materialdesignicons.min.css';
-
-.v-btn {
-    border-radius: 10px;
-    font-size: 16px;
-    padding: 12px 24px;
-  }

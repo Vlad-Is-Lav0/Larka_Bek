@@ -13,11 +13,9 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('tasks', function (Blueprint $table) {
-            $table->id();
-            $table->string('description');
-            $table->boolean('is_completed')->default(false);
-            $table->timestamps();
+        Schema::table('tasks', function (Blueprint $table) {
+            $table->string('moysklad_task_id')->nullable()->after('description');
+            $table->timestamp('due_date')->nullable()->after('is_completed');
         });
     }
 
@@ -28,6 +26,9 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('tasks');
+        Schema::table('tasks', function (Blueprint $table) {
+            $table->string('moysklad_task_id')->nullable()->after('description');
+            $table->timestamp('due_date')->nullable()->after('is_completed');
+        });
     }
 };
