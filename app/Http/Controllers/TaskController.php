@@ -66,12 +66,13 @@ class TaskController extends Controller
         // Обновляем данные локальной задачи
         $task->description = $request->description;
         $task->is_completed = $request->is_completed;
+        $task->due_date = $request->due_date ? date(DATE_ATOM, strtotime($request->due_date)) : null;
         $task->save();
         // Подготовка данных для обновления в МойСклад
         $data = [
             'name' => $task->description, // Название задачи
             'description' => $task->description, // Описание задачи
-            'dueDate' => date(DATE_ATOM, strtotime($request->due_date)), // Дата выполнения в ISO 8601
+            'dueDate' => $task->due_date,  // Дата
         ];
         // Обновляем задачу в МойСклад
         $response = $this->moySkladService->updateTask($task->moysklad_task_id, $data);
