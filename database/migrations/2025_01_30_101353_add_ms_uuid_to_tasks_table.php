@@ -13,22 +13,20 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('main_settings', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('accountId')->unique();
-            $table->string('ms_token', 42);
-            $table->string('UID_ms', 64)->nullable();
-            $table->timestamps();
+        Schema::table('tasks', function (Blueprint $table) {
+            $table->uuid('ms_uuid')->nullable()->after('id');
         });
     }
 
     /**
      * Reverse the migrations.
-     * 
+     *
      * @return void
      */
     public function down()
     {
-        Schema::dropIfExists('main_settings');
+        Schema::table('tasks', function (Blueprint $table) {
+            $table->dropColumn('ms_uuid');
+        });
     }
 };

@@ -13,11 +13,7 @@ class MainSettings extends Model
     protected $table = 'main_settings';
 
     // Указываем, какие поля можно заполнять (защищаем от массового назначения)
-    protected $fillable = [
-        'accountId',
-        'ms_token',
-        'UID_ms',
-    ];
+    protected $fillable = [ 'accountId', 'ms_token', 'UID_ms'];
 
     public $timestamps = false; // Если таблица не использует поля created_at и updated_at
 }
