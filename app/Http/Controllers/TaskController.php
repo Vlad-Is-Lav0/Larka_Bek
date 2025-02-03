@@ -14,11 +14,11 @@ class TaskController extends Controller
 
     public function __construct()
     {
-        $settings = MainSettings::first();
+        $settings = MainSettings::first(); //первую запись из таблицы
         if (!$settings) {
             abort(500, 'Основные настройки не найдены');
         }
-        $this->msClient = new MoySkladClient($settings->ms_token, $settings->accountId);
+        $this->msClient = new MoySkladClient($settings->ms_token, $settings->accountId);//передача токена и id
     }
 
     public function index()
@@ -28,66 +28,67 @@ class TaskController extends Controller
         // Получаем задачи из МойСклад
         $msTasks = $this->msClient->getTasks();
 
-         // Преобразуем задачи из МойСклад в коллекцию с нужными полями
-    $msTasksCollection = collect($msTasks['rows'])->map(function ($task) {
-        return [
-            'id' => $task['id'], // Номер задачи из МойСклад
-            'description' => $task['description'] ?? 'Описание отсутствует',
-            'is_completed' => $task['is_completed'] ?? false,
-            'created_at' => $task['created'] ?? now(), // Дата создания
-        ];
-    });
+        // Преобразуем задачи из МойСклад в коллекцию с нужными полями
+        $msTasksCollection = collect($msTasks['rows'])->map(function ($task) {
+            return [
+                'id' => $task['id'],
+                'description' => $task['description'] ?? 'Описание отсутствует',
+                'is_completed' => (bool) ($task['is_completed'] ?? false),
+                'created_at' => $task['created'] ?? now(),
+            ];
+        });
 
-    // Преобразуем задачи из локальной базы в коллекцию с нужными полями
-    $tasksCollection = $tasks->map(function ($task) {
-        return [
-            'id' => $task->ms_uuid, // Номер задачи из локальной базы
-            'description' => $task->description,
-            'is_completed' => (bool) $task->is_completed,
-            'created_at' => $task->created_at, // Дата создания
-        ];
-    });
+        // Преобразуем задачи из локальной базы в коллекцию
+        $tasksCollection = $tasks->map(function ($task) {
+            return [
+                'id' => $task->ms_uuid,
+                'description' => $task->description,
+                'is_completed' => (bool) ($task->is_completed ?? false),
+                'created_at' => $task->created_at,
+            ];
+        });
 
-        // Объединяем задачи
-        $allTasks = $tasksCollection->merge($msTasksCollection);
+        //Объединяем коллекции из базы и "МойСклад"
+        return response()->json($tasksCollection->merge($msTasksCollection));
+    }
 
-        return response()->json($allTasks);
+    public function show($id)
+    {
+        return Task::findOrFail($id);
     }
 
     public function store(Request $request)
     {
-        // Получаем список сотрудников
         $employees = $this->msClient->getEmployees();
         if (empty($employees['rows'])) {
             return response()->json(['error' => 'No employees found'], 400);
         }
 
-        // Используем первого сотрудника для примера
         $firstEmployee = $employees['rows'][0];
 
-        // Данные для создания задачи
-    $taskData = [
-        'name' => $request->input('name'),
-        'description' => $request->input('description'),
-        'is_completed' => (bool) $request->input('is_completed', false),
-        'assignee' => [
-            'meta' => [
-                'href' => $firstEmployee['meta']['href'],
-                'type' => 'employee',
-                'mediaType' => 'application/json',
-            ],
-        ],
-    ];
+        
 
-        // Создаем задачу в МойСклад
+        // Создаем задачу
+        $taskData = [
+            'name' => $request->input('name'),
+            'description' => $request->input('description'),
+            'is_completed' => filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN),
+            'assignee' => [
+                'meta' => [
+                    'href' => $firstEmployee['meta']['href'],
+                    'type' => 'employee',
+                    'mediaType' => 'application/json',
+                ],
+            ],
+        ];
+
         $msTask = $this->msClient->createTask($taskData);
 
         if ($msTask) {
-            // Сохраняем задачу в локальной базе
             $task = new Task();
             $task->ms_uuid = $msTask['id'];
             $task->description = $taskData['description'];
-            $task->is_completed = filter_var($msTask['is_completed'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $task->is_completed = (int) filter_var($msTask['is_completed'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $task->created_at = $msTask['created'] ?? now();
             $task->save();
 
@@ -95,5 +96,22 @@ class TaskController extends Controller
         }
 
         return response()->json(['error' => 'Failed to create task'], 500);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $task = Task::findOrFail($id);
+        $task->description = $request->input('description');
+        $task->is_completed = (int) filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
+        $task->save();
+
+        return response()->json($task);
+    }
+
+    public function destroy($id)
+    {
+        $task = Task::findOrFail($id);
+        $task->delete();
+        return response()->json(null, 204);
     }
 }

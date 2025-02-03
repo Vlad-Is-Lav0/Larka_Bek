@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Log;
         try {
             $response = $this->client->get('entity/employee');
             return json_decode($response->getBody(), true);
+            
         } catch (ClientException $e) {
             Log::error('MoySklad API Error: ' . $e->getMessage());
             throw $e;
@@ -47,6 +48,7 @@ use Illuminate\Support\Facades\Log;
         try {
             $response = $this->client->get('entity/task');
             return json_decode($response->getBody(), true);
+            
         } catch (ClientException $e) {
             $response = $e->getResponse();
             $errorBody = $response->getBody()->getContents();
