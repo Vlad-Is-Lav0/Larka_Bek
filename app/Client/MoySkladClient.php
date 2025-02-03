@@ -103,6 +103,16 @@ use Illuminate\Support\Facades\Http;
         }
     }
 
-    
+    public function getTaskById($taskId)
+    {
+        try {
+            $response = $this->client->get("entity/task/{$taskId}");
+            return json_decode($response->getBody(), true);
+        } catch (ClientException $e) {
+            Log::error('MoySklad API Error (getTaskById): ' . $e->getMessage());
+            return null;
+        }
+    }
+
     
 }

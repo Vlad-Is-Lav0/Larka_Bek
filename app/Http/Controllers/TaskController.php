@@ -29,16 +29,6 @@ class TaskController extends Controller
         // Получаем задачи из МойСклад
         $msTasks = $this->msClient->getTasks();
 
-        // Преобразуем задачи из МойСклад в коллекцию с нужными полями
-        $tasksCollection = $tasks->mapWithKeys(function ($task) {
-            return [$task->ms_uuid => [
-                'id' => $task->ms_uuid,
-                'description' => $task->description,
-                'is_completed' => (bool) ($task->is_completed ?? false),
-                'created_at' => $task->created_at,
-            ]];
-        });
-    
         // Преобразуем задачи из МойСклад в коллекцию
         $msTasksCollection = collect($msTasks['rows'])->mapWithKeys(function ($task) {
             return [$task['id'] => [
@@ -46,13 +36,27 @@ class TaskController extends Controller
                 'description' => $task['description'] ?? 'Описание отсутствует',
                 'is_completed' => (bool) ($task['done'] ?? false),
                 'created_at' => $task['created'] ?? now(),
+                'updated_at' => $task['updated'] ?? now(),
             ]];
         });
+
+        // Обновляем локальную базу
+        foreach ($msTasksCollection as $taskId => $taskData) {
+            Task::updateOrCreate(
+                ['ms_uuid' => $taskId], 
+                [
+                    'description' => $taskData['description'],
+                    'is_completed' => $taskData['is_completed'],
+                    'created_at' => $taskData['created_at'],
+                ]
+            );
+        }
+
     
         // Объединяем данные (локальные задачи приоритетнее, если id совпадают)
-        $mergedTasks = $msTasksCollection->merge($tasksCollection)->values();
+        $updatedTasks = Task::all();
     
-        return response()->json(['data' => $mergedTasks]);
+        return response()->json(['data' => $updatedTasks]);
     }
 
     public function show($id)
@@ -102,45 +106,52 @@ class TaskController extends Controller
         return response()->json(['error' => 'Failed to create task'], 500);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, $ms_uuid)
     {
-        // Проверяем, есть ли задача в локальной базе
-        $task = Task::where('ms_uuid', $id)->first();
-        
-        if (!$task) {
-            return response()->json(['error' => 'Task not found in local database'], 404);
+        $task = Task::where('ms_uuid', $ms_uuid)->first();
+        $msTask = $this->msClient->getTaskById($ms_uuid);
+
+        if (!$msTask) {
+            return response()->json(['error' => 'Task not found in MoySklad'], 404);
         }
 
-        // Обновляем задачу в локальной базе
-        $task->description = $request->input('description');
-        $task->is_completed = (int) filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
+        if (!$task) {
+            $task = new Task();
+            $task->ms_uuid = $msTask['id'];
+        }
+
+        $newDescription = $request->input('description', $task->description);
+        $newIsCompleted = filter_var($request->input('is_completed', $task->is_completed), FILTER_VALIDATE_BOOLEAN);
+
+        // Преобразование даты для корректного сравнения
+        $msUpdatedAt = \Carbon\Carbon::parse($msTask['updated'] ?? now());
+        $localUpdatedAt = \Carbon\Carbon::parse($task->updated_at ?? '2000-01-01');
+
+        if ($msUpdatedAt->greaterThan($localUpdatedAt)) {
+            $task->description = $msTask['description'] ?? 'Описание отсутствует';
+            $task->is_completed = (int) ($msTask['done'] ?? false);
+            $task->updated_at = $msUpdatedAt;
+            $task->save();
+        }
+
+        // Проверяем изменения из запроса и обновляем МойСклад
+        if ($newDescription !== $task->description || $newIsCompleted !== $task->is_completed) {
+            $taskData = [
+                'description' => $newDescription,
+                'done' => $newIsCompleted,
+            ];
+
+            $updatedTask = $this->msClient->updateTask($ms_uuid, $taskData);
+            if ($updatedTask) {
+                $task->updated_at = \Carbon\Carbon::parse($updatedTask['updated'] ?? now());
+            }
+        }
+
         $task->save();
 
-        // Обновляем задачу в МойСклад
-        $taskData = [
-            'description' => $request->input('description'),
-            'done' => filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN),
-        ];
-
-        $updatedTask = $this->msClient->updateTask($id, $taskData);
-
-        dd('updatedTask');
-        if ($updatedTask) {
-            // Возвращаем обновленные данные, включая локально обновленную задачу
-            $task->description = $updatedTask['description'];
-            $task->is_completed = $updatedTask['done'];
-            $task->save();
-
-            return response()->json([
-                'id' => $task->ms_uuid,
-                'description' => $task->description,
-                'is_completed' => $task->is_completed,
-                'updated_at' => $task->updated_at,
-            ]);
+        return response()->json($task);
     }
 
-    return response()->json(['error' => 'Failed to update task in MoySklad'], 500);
-    }
 
     public function destroy($id)
     {
