@@ -107,12 +107,14 @@ class TaskController extends Controller
         // Проверяем, есть ли задача в локальной базе
         $task = Task::where('ms_uuid', $id)->first();
         
-        // Если есть в локальной базе, обновляем
-        if ($task) {
-            $task->description = $request->input('description');
-            $task->is_completed = (int) filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
-            $task->save();
+        if (!$task) {
+            return response()->json(['error' => 'Task not found in local database'], 404);
         }
+
+        // Обновляем задачу в локальной базе
+        $task->description = $request->input('description');
+        $task->is_completed = (int) filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
+        $task->save();
 
         // Обновляем задачу в МойСклад
         $taskData = [
@@ -122,15 +124,22 @@ class TaskController extends Controller
 
         $updatedTask = $this->msClient->updateTask($id, $taskData);
 
+        dd('updatedTask');
         if ($updatedTask) {
-            return response()->json([
-                'id' => $id,
-                'description' => $updatedTask['description'],
-                'is_completed' => $updatedTask['done'],
-            ]);
-        }
+            // Возвращаем обновленные данные, включая локально обновленную задачу
+            $task->description = $updatedTask['description'];
+            $task->is_completed = $updatedTask['done'];
+            $task->save();
 
-        return response()->json(['error' => 'Failed to update task'], 500);
+            return response()->json([
+                'id' => $task->ms_uuid,
+                'description' => $task->description,
+                'is_completed' => $task->is_completed,
+                'updated_at' => $task->updated_at,
+            ]);
+    }
+
+    return response()->json(['error' => 'Failed to update task in MoySklad'], 500);
     }
 
     public function destroy($id)

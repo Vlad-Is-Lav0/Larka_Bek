@@ -5,6 +5,7 @@ namespace App\Client;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
     class MoySkladClient
 {
@@ -101,5 +102,7 @@ use Illuminate\Support\Facades\Log;
             return false;
         }
     }
+
+    
     
 }
