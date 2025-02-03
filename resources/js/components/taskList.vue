@@ -20,8 +20,9 @@
         <!-- :task="task" Пропс. Передает объект task (одна задача из массива filteredTasks) в дочерний компонент task-item -->
         <tbody>
           <task-item
-            v-for="task in filteredTasks"  
+            v-for="(task, idex) in filteredTasks"  
             :key="task.id"
+            :idex="idex"
             :task="task"
             @edit="editTask"
             @delete="deleteTask"

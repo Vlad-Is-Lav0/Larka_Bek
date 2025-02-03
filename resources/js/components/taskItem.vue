@@ -1,7 +1,7 @@
 <template>
     <tr>
        <!-- Отображение ID задачи -->
-    <td>{{ task.id }}</td>
+    <td>{{ idex }}</td>
 
       <!-- Отображение описания задачи -->
     <td>{{ task.description }}</td>
@@ -30,6 +30,10 @@
           type: Object,
           required: true,
         },
+        idex: {
+          type: [String],
+          required: true
+        }
       },
       methods: {
       // Метод для форматирования даты

@@ -7,6 +7,7 @@ use App\Models\MainSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Client\MoySkladClient;
+use Dflydev\DotAccessData\Data;
 
 class TaskController extends Controller
 {
@@ -29,27 +30,29 @@ class TaskController extends Controller
         $msTasks = $this->msClient->getTasks();
 
         // Преобразуем задачи из МойСклад в коллекцию с нужными полями
-        $msTasksCollection = collect($msTasks['rows'])->map(function ($task) {
-            return [
-                'id' => $task['id'],
-                'description' => $task['description'] ?? 'Описание отсутствует',
-                'is_completed' => (bool) ($task['is_completed'] ?? false),
-                'created_at' => $task['created'] ?? now(),
-            ];
-        });
-
-        // Преобразуем задачи из локальной базы в коллекцию
-        $tasksCollection = $tasks->map(function ($task) {
-            return [
+        $tasksCollection = $tasks->mapWithKeys(function ($task) {
+            return [$task->ms_uuid => [
                 'id' => $task->ms_uuid,
                 'description' => $task->description,
                 'is_completed' => (bool) ($task->is_completed ?? false),
                 'created_at' => $task->created_at,
-            ];
+            ]];
         });
-
-        //Объединяем коллекции из базы и "МойСклад"
-        return response()->json($tasksCollection->merge($msTasksCollection));
+    
+        // Преобразуем задачи из МойСклад в коллекцию
+        $msTasksCollection = collect($msTasks['rows'])->mapWithKeys(function ($task) {
+            return [$task['id'] => [
+                'id' => $task['id'],
+                'description' => $task['description'] ?? 'Описание отсутствует',
+                'is_completed' => (bool) ($task['done'] ?? false),
+                'created_at' => $task['created'] ?? now(),
+            ]];
+        });
+    
+        // Объединяем данные (локальные задачи приоритетнее, если id совпадают)
+        $mergedTasks = $msTasksCollection->merge($tasksCollection)->values();
+    
+        return response()->json(['data' => $mergedTasks]);
     }
 
     public function show($id)
@@ -66,13 +69,14 @@ class TaskController extends Controller
 
         $firstEmployee = $employees['rows'][0];
 
-        
+        // Получаем значение параметра is_completed из запроса
+        $isCompleted = filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
 
         // Создаем задачу
         $taskData = [
             'name' => $request->input('name'),
             'description' => $request->input('description'),
-            'is_completed' => filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN),
+            'done' => $isCompleted, // Отправляем параметр 'done' как true или false
             'assignee' => [
                 'meta' => [
                     'href' => $firstEmployee['meta']['href'],
@@ -88,7 +92,7 @@ class TaskController extends Controller
             $task = new Task();
             $task->ms_uuid = $msTask['id'];
             $task->description = $taskData['description'];
-            $task->is_completed = (int) filter_var($msTask['is_completed'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $task->is_completed = (int) $isCompleted; // Сохраняем статус выполнения в локальной БД
             $task->created_at = $msTask['created'] ?? now();
             $task->save();
 
@@ -100,18 +104,50 @@ class TaskController extends Controller
 
     public function update(Request $request, $id)
     {
-        $task = Task::findOrFail($id);
-        $task->description = $request->input('description');
-        $task->is_completed = (int) filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
-        $task->save();
+        // Проверяем, есть ли задача в локальной базе
+        $task = Task::where('ms_uuid', $id)->first();
+        
+        // Если есть в локальной базе, обновляем
+        if ($task) {
+            $task->description = $request->input('description');
+            $task->is_completed = (int) filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN);
+            $task->save();
+        }
 
-        return response()->json($task);
+        // Обновляем задачу в МойСклад
+        $taskData = [
+            'description' => $request->input('description'),
+            'done' => filter_var($request->input('is_completed', false), FILTER_VALIDATE_BOOLEAN),
+        ];
+
+        $updatedTask = $this->msClient->updateTask($id, $taskData);
+
+        if ($updatedTask) {
+            return response()->json([
+                'id' => $id,
+                'description' => $updatedTask['description'],
+                'is_completed' => $updatedTask['done'],
+            ]);
+        }
+
+        return response()->json(['error' => 'Failed to update task'], 500);
     }
 
     public function destroy($id)
     {
-        $task = Task::findOrFail($id);
-        $task->delete();
-        return response()->json(null, 204);
+        // Удаляем из локальной базы
+        $task = Task::where('ms_uuid', $id)->first();
+        if ($task) {
+            $task->delete();
+        }
+
+        // Удаляем из МойСклад
+        $deleted = $this->msClient->deleteTask($id);
+
+        if ($deleted) {
+            return response()->json(null, 204);
+        }
+
+        return response()->json(['error' => 'Failed to delete task'], 500);
     }
 }

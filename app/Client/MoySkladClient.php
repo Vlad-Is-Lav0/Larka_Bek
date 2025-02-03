@@ -74,5 +74,32 @@ use Illuminate\Support\Facades\Log;
             throw $e;
         }
     }
+
+    /**
+     * Обновляем задачу.
+     */
+        public function updateTask($taskId, $taskData)
+    {
+        try {
+            $response = $this->client->put("entity/task/{$taskId}", [
+                'json' => $taskData,
+            ]);
+            return json_decode($response->getBody(), true);
+        } catch (ClientException $e) {
+            Log::error('MoySklad API Error (updateTask): ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function deleteTask($taskId)
+    {
+        try {
+            $this->client->delete("entity/task/{$taskId}");
+            return true;
+        } catch (ClientException $e) {
+            Log::error('MoySklad API Error (deleteTask): ' . $e->getMessage());
+            return false;
+        }
+    }
     
 }
