@@ -95,10 +95,13 @@ use Illuminate\Support\Facades\Http;
     public function deleteTask($taskId)
     {
         try {
-            $this->client->delete("entity/task/{$taskId}");
+            $response = $this->client->delete("entity/task/{$taskId}");
+            Log::info("Deleted task in MoySklad: {$taskId}");
             return true;
         } catch (ClientException $e) {
-            Log::error('MoySklad API Error (deleteTask): ' . $e->getMessage());
+            $response = $e->getResponse();
+            $errorBody = $response ? $response->getBody()->getContents() : 'No response';
+            Log::error("MoySklad API Error (deleteTask): " . $errorBody);
             return false;
         }
     }
