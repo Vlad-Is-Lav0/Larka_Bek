@@ -18,17 +18,14 @@ use Illuminate\Support\Facades\Http;
         $this->token = $token; // Сохраняем токен
         $this->accountId = $accountId;  // Сохраняем ID аккаунта
         $this->client = new Client([  // Создаём новый HTTP-клиент
-            'base_uri' => 'https://api.moysklad.ru/api/remap/1.2/',  // Указываем базовый URL API
-            'headers' => [
-                'Authorization' => 'Bearer ' . $this->token,  // Добавляем заголовок авторизации
-                'Accept-Encoding' => 'gzip',  // Включаем сжатие ответов для оптимизации
+            'base_uri'                          => 'https://api.moysklad.ru/api/remap/1.2/',  // Указываем базовый URL API
+            'headers'                           => [
+                'Authorization'                 => 'Bearer ' . $this->token,  // Добавляем заголовок авторизации
+                'Accept-Encoding'               => 'gzip',  // Включаем сжатие ответов для оптимизации
             ],
         ]);
     }
-
-    /**
-     * Получить список сотрудников.
-     */
+    // Получить список сотрудников.
     public function getEmployees()
     {
         try {
@@ -40,27 +37,31 @@ use Illuminate\Support\Facades\Http;
             throw $e;  // Пробрасываем исключение дальш
         }
     }
-
-     /**
-     * Получить список задач.
-     */
-    public function getTasks()
+    // Получить список задач.
+    public function getTasks($onlyCompleted = null)
     {
         try {
-            $response = $this->client->get('entity/task');// Запрос списка задач
-            return json_decode($response->getBody(), true);// Декодируем JSON-ответ
-            
+            $queryParams = [];
+
+            // Добавляем фильтр выполненных или невыполненных задач
+            if (!is_null($onlyCompleted)) {
+                $queryParams['filter'] = 'done=' . ($onlyCompleted ? 'true' : 'false');
+            }
+
+            $response = $this->client->get('entity/task', [
+                'query' => $queryParams,
+            ]);
+
+            return json_decode($response->getBody(), true);
         } catch (ClientException $e) {
             $response = $e->getResponse();
-            $errorBody = $response->getBody()->getContents();// Получаем тело ошибки
-            Log::error('MoySklad API Error: ' . $errorBody);// Логируем ошибку
-            throw $e;// Пробрасываем исключение
+            $errorBody = $response->getBody()->getContents();
+            Log::error('MoySklad API Error: ' . $errorBody);
+            throw $e;
         }
     }
 
-    /**
-     * Создать задачу.
-     */
+    // Создать задачу.
     public function createTask($taskData)
     {
         try {
@@ -75,10 +76,7 @@ use Illuminate\Support\Facades\Http;
             throw $e;// Пробрасываем исключение
         }
     }
-
-    /**
-     * Обновляем задачу.
-     */
+    // Обновляем задачу.
         public function updateTask($taskId, $taskData)
     {
         try {
@@ -91,10 +89,7 @@ use Illuminate\Support\Facades\Http;
             return null;// Возвращаем null в случае ошибки
         }
     }
-
-    /**
-     * Удалить задачу.
-     */
+    // Удалить задачу.
     public function deleteTask($taskId)
     {
         try {
@@ -108,9 +103,7 @@ use Illuminate\Support\Facades\Http;
             return false; // Возвращаем false в случае ошибки
         }
     }
-    /**
-     * Получить задачу по ID.
-     */
+    // Получить задачу по ID.
     public function getTaskById($taskId)
     {
         try {
@@ -121,6 +114,4 @@ use Illuminate\Support\Facades\Http;
             return null; // Возвращаем null в случае ошибки
         }
     }
-
-    
 }
