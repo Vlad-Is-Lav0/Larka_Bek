@@ -72,6 +72,7 @@ import taskItem from "./taskItem.vue";
     },
     mounted() {
       this.fetchTasks();
+     // this.updateInterval = setInterval(this.fetchTasks, 10000); // Автообновление каждые 10 сек
     },
     methods: {
       //Используется стандартный fetch, чтобы отправить GET-запрос на URL /api/tasks, затем парсится ответ в формат JSON и сохраняется в this.tasks.

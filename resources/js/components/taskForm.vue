@@ -12,6 +12,7 @@
       aria-label="Описание задачи"
       aria-describedby="basic-addon1"
       required
+      maxlength="200"
       />
     </div>
       <v-switch
