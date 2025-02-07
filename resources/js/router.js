@@ -10,7 +10,7 @@ const routes = [
         { path: '/tasks/edit/:id',      component: taskForm },
         { path: '/products',            component: productList },
         { path: '/products/add',        component: productForm },
-        { path: "/products/:id/edit",name: "editProduct", omponent: productForm, },
+        { path: "/products/:id/edit", name: "editProduct", component: productForm, },
 ];
 
 const router = createRouter({
