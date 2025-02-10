@@ -1,5 +1,5 @@
 <template>
-    <tr>
+    <tr @click="$emit('edit', product.id)" style="cursor: pointer;">
           <!-- Отображение номер товара -->
       <td>{{ index }}</td>
         <!-- Отображение код товара -->
@@ -10,8 +10,8 @@
       <td>{{ product.salePrices ? product.salePrices[0]?.value / 100 : "—" }}</td>
         <!-- Кнопки для редактирования и удаления задачи -->
       <td>
-        <v-btn @click="$emit('edit', product.id)" variant="outlined" color="green">Редактировать</v-btn>
-        <v-btn @click="$emit('delete', product.id)" variant="outlined" color="red">Удалить</v-btn>
+        <v-btn  variant="outlined" color="green">Редактировать</v-btn>
+       
       </td>
     </tr>
   </template>

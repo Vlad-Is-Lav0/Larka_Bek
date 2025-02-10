@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import taskList from "./components/taskList.vue";
-import taskForm from "./components/taskForm.vue";
-import productList from './components/productList.vue';
-import productForm from './components/productForm.vue';
+import taskList from "./components/task/taskList.vue";
+import taskForm from "./components/task/taskForm.vue";
+import productList from './components/product/productList.vue';
+import productForm from './components/product/productForm.vue';
 
 const routes = [
         { path: '/tasks',               component: taskList },
