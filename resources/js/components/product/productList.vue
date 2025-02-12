@@ -8,7 +8,6 @@
           <th>Код</th>
           <th>Название</th>
           <th>Стоимость</th>
-          <th>Действия</th>
         </tr>
       </thead>
       <tbody>
@@ -18,7 +17,6 @@
           :index="index + 1"
           :product="product"
           @edit="editProduct"
-          @delete="deleteProduct"
         />
       </tbody>
     </v-table>
@@ -47,14 +45,6 @@ export default {
         this.products = response.data;
       } catch (error) {
         console.error("Ошибка загрузки товаров", error);
-      }
-    },
-    async deleteProduct(id) {
-      try {
-        await axios.delete(`/api/products/${id}`);
-        this.fetchProducts();
-      } catch (error) {
-        console.error("Ошибка удаления товара", error);
       }
     },
     editProduct(id) {

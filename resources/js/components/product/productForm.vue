@@ -32,7 +32,10 @@
         label="Код товара"
         readonly
       />
+      <div class="d-flex justify-space-between mt-3">
         <v-btn type="submit" color="primary">{{ isEditMode ? "Сохранить" : "Добавить" }}</v-btn>
+        <v-btn v-if="isEditMode" @click="deleteProduct" variant="outlined" color="red" text="Удалить" />
+      </div>
       </v-form>
     </div>
   </template>
@@ -91,6 +94,17 @@
         this.$router.push("/products");
       } catch (error) {
         console.error("Ошибка сохранения товара", error);
+      }
+    },
+    async deleteProduct() {
+      if (confirm("Вы уверены, что хотите удалить задачу?")) {
+        try {
+          await axios.delete(`/api/products/${this.$route.params.id}`);
+          this.$router.push("/products"); // Перенаправление на список задач после удаления
+        } catch (error) {
+          this.error = "Ошибка при удалении задачи.";
+          console.error("Ошибка:", error);
+        }
       }
     },
   },

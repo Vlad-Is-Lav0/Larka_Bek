@@ -19,7 +19,10 @@
         v-model="task.is_completed"
         label="Выполнено"
       ></v-switch>
-      <v-btn type="submit" color="primary">{{ isEditMode ? "Сохранить" : "Добавить" }}</v-btn>
+      <div class="d-flex justify-space-between mt-3">
+        <v-btn type="submit" color="primary"> {{ isEditMode ? "Сохранить" : "Добавить" }} </v-btn>
+        <v-btn v-if="isEditMode" @click="deleteTask" variant="outlined" color="red" text="Удалить" />
+      </div> 
     </v-form>
   </div>
 </template>
@@ -94,6 +97,17 @@ export default {
           this.error = "Ошибка при сохранении задачи.";
           console.error("Ошибка:", error);
         });
+    },
+    async deleteTask() {
+      if (confirm("Вы уверены, что хотите удалить задачу?")) {
+        try {
+          await axios.delete(`/api/tasks/${this.$route.params.id}`);
+          this.$router.push("/tasks"); // Перенаправление на список задач после удаления
+        } catch (error) {
+          this.error = "Ошибка при удалении задачи.";
+          console.error("Ошибка:", error);
+        }
+      }
     },
   },
 };

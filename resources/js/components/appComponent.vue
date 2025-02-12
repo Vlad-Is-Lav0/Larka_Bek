@@ -59,6 +59,7 @@
 const MENU_ITEMS = [
   { title: "Задачи", icon: "mdi-check-circle", route: "/tasks" },
   { title: "Товары", icon: "mdi-cart", route: "/products" },
+  { title: "Заказы", icon: "mdi-cart-outline", route: "/orders" },
 ];
 
 export default {
@@ -75,6 +76,8 @@ export default {
           return "Задачи";
         case "/products":
           return "Товары";
+        case "/orders":
+          return "Заказы";
         default:
           return "Главная";
       }
@@ -85,6 +88,8 @@ export default {
           return "Добавить задачу";
         case "/products":
           return "Добавить товар";
+        case "/orders":
+          return "Добавить заказ";
         default:
           return "Добавить";
       }
@@ -96,6 +101,8 @@ export default {
         this.$router.push("/tasks/add");
       } else if (this.$route.path === "/products") {
         this.$router.push("/products/add");
+      } else if (this.$route.path === "/orders") {
+        this.$router.push("/orders/add");
       }
     },
   },

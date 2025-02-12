@@ -1,5 +1,5 @@
 <template>
-    <tr>
+    <tr @click="$emit('edit', task.id)" style="cursor: pointer;" class="hover-row">
        <!-- Отображение ID задачи -->
     <td>{{ idex }}</td>
 
@@ -11,12 +11,6 @@
 
       <!-- Отображение даты создания задачи -->
     <td>{{ formatDate(task.created_at) }}</td> <!-- Форматируем дату --> 
-
-      <!-- Кнопки для редактирования и удаления задачи -->
-    <td>
-      <v-btn @click="$emit('edit', task.id)" variant="outlined" color="green" text="Редактировать" />
-      <v-btn @click="$emit('delete', task.id)" variant="outlined" color="red" text="Удалить" />
-    </td>
     </tr>
   </template>
   
@@ -44,3 +38,11 @@
     }
     };
   </script>
+
+  <style>
+  /* Добавляем эффект при наведении */
+  .hover-row:hover {
+    background-color: #f0f0f0; /* Светло-серый фон */
+    transition: background-color 0.2s ease-in-out;
+  }
+  </style>

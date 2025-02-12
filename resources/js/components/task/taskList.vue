@@ -25,7 +25,6 @@
             :idex="idex"
             :task="task"
             @edit="editTask"
-            @delete="deleteTask"
           />
         </tbody> 
       </v-table>
@@ -90,19 +89,6 @@ import taskItem from "./taskItem.vue";
       editTask(id) {
         this.$router.push(`/tasks/edit/${id}`);
       },
-      //Метод для удаления задачи. Отправляется DELETE-запрос на сервер для удаления задачи с соответствующим id.
-      //После этого список задач обновляется с помощью вызова fetchTasks.
-      deleteTask(id) {
-        axios
-          .delete(`/api/tasks/${id}`) // Отправляем DELETE-запрос
-          .then(() => this.fetchTasks()) // После успешного удаления обновляем список задач
-          .catch((error) => {
-          console.error(error); // Обрабатываем ошибку
-        });
-      },
     },
-    //Это жизненный цикл Vue, который выполняется после того,
-    // как компонент был вставлен в DOM. В этом методе вызывается fetchTasks(), чтобы загрузить список задач при монтировании компонента.
-    
   };
   </script>

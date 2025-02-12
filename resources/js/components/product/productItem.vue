@@ -1,5 +1,5 @@
 <template>
-    <tr @click="$emit('edit', product.id)" style="cursor: pointer;">
+    <tr @click="$emit('edit', product.id)" style="cursor: pointer;" class="hover-row">
           <!-- Отображение номер товара -->
       <td>{{ index }}</td>
         <!-- Отображение код товара -->
@@ -9,10 +9,6 @@
         <!-- Отображение стомость -->
       <td>{{ product.salePrices ? product.salePrices[0]?.value / 100 : "—" }}</td>
         <!-- Кнопки для редактирования и удаления задачи -->
-      <td>
-        <v-btn  variant="outlined" color="green">Редактировать</v-btn>
-       
-      </td>
     </tr>
   </template>
   
@@ -35,3 +31,11 @@
     }
     };
   </script>
+
+  <style>
+  /* Добавляем эффект при наведении */
+  .hover-row:hover {
+    background-color: #f0f0f0; /* Светло-серый фон */
+    transition: background-color 0.2s ease-in-out;
+  }
+  </style>
