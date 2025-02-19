@@ -3,8 +3,9 @@
 namespace App\Client;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Arr;
 
 class MoySkladClientOrder
 {
@@ -12,142 +13,155 @@ class MoySkladClientOrder
     private $token;
     private $accountId;
 
-    public function __construct($token, $accountId)
+    public function __construct(string $token, string $accountId)
     {
-        $this->token = $token;// Сохраняем токен
-        $this->accountId = $accountId;// Сохраняем ID аккаунта
-        $this->client = new Client([// Создаём новый HTTP-клиент
+        $this->token     = $token;
+        $this->accountId = $accountId;
+        $this->client    = new Client([
             'base_uri' => 'https://api.moysklad.ru/api/remap/1.2/',
-            'headers' => [
-                'Authorization' => 'Bearer ' . $this->token,
+            'headers'  => [
+                'Authorization'   => 'Bearer ' . $this->token,
                 'Accept-Encoding' => 'gzip',
-                'Content-Type' => 'application/json'
+                'Content-Type'    => 'application/json'
             ],
         ]);
     }
-    // Получение заказов покупателей
-    public function getOrders()
+
+    public function getOrders(): array
     {
+        $response = $this->request('GET', 'entity/customerorder', [
+            'query' => ['expand' => 'agent,state']
+        ]);
+
+        if (Arr::get($response, 'rows') === null) {
+            return ['error' => true, 'message' => 'Ошибка получения заказов', 'details' => $response];
+        }
+
+        $agentIds = array_unique(array_filter(array_map(fn($order) => Arr::get($order, 'agent.meta.href'), $response['rows'])));
+        $stateIds = array_unique(array_filter(array_map(fn($order) => Arr::get($order, 'state.meta.href'), $response['rows'])));
+
+        $agents = $this->batchGetNames($agentIds);
+        $states = $this->batchGetNames($stateIds);
+
+        return array_map(fn($order) => [
+            'id'        => $order['id'] ?? null,
+            'moment'    => $order['moment'] ?? null,
+            'sum'       => isset($order['sum']) ? $order['sum'] / 100 : 0.0,
+            'agentName' => $this->getEntityName($order['agent']['meta']['href'] ?? null, $agents),
+            'stateName' => $this->getEntityName($order['state']['meta']['href'] ?? null, $states),
+        ], $response['rows']);
+    }
+
+    public function getOrderById(string $id): ?array
+    {
+        return $this->request('GET', "entity/customerorder/{$id}");
+    }
+
+    public function createOrder(array $data): ?array
+    {
+        return $this->request('POST', 'entity/customerorder', ['json' => $data]);
+    }
+
+    public function updateOrder(string $id, array $data): ?array
+    {
+        return $this->request('PUT', "entity/customerorder/{$id}", ['json' => $data]);
+    }
+
+    public function deleteOrder(string $id): array
+    {
+        $response = $this->request('DELETE', "entity/customerorder/{$id}");
+        return $response['error'] ?? false ? $response : ['success' => true];
+    }
+
+    public function getAgents(): array
+    {
+        return $this->request('GET', 'entity/counterparty')['rows'] ?? [];
+    }
+
+    private function request(string $method, string $uri, array $options = []): ?array
+    {
+        Log::info("Запрос к МойСклад", [
+            'method'  => $method,
+            'uri'     => $uri,
+            'options' => $options
+        ]);
+    
         try {
-            $response = $this->client->get('entity/customerorder', [
-                'query' => [
-                    'expand' => 'agent,state' // Запрашиваем полные данные о контрагенте и статусе
-                ]
+            $response = $this->client->request($method, $uri, $options);
+            return json_decode($response->getBody()->getContents(), true);
+        } catch (RequestException $e) {
+            $errorMessage = $e->hasResponse()
+                ? json_decode($e->getResponse()->getBody()->getContents(), true)
+                : ['message' => $e->getMessage()];
+    
+            Log::error("Ошибка запроса к API", [
+                'method'  => $method,
+                'uri'     => $uri,
+                'error'   => $errorMessage
             ]);
-            $orders = json_decode($response->getBody(), true)['rows'];
+    
+            return [
+                'error'   => true,
+                'message' => 'Ошибка запроса к API',
+                'details' => $errorMessage
+            ];
+        }
+    }
 
-            // Добавляем название контрагента и статус в каждый заказ
-            foreach ($orders as &$order) {
-                $order['agentName'] = isset($order['agent']['meta']['href'])
-                    ? $this->getCounterpartyName($order['agent']['meta']['href'])
-                    : 'Не указан';
-
-                $order['stateName'] = isset($order['state']['meta']['href'])
-                    ? $this->getStateName($order['state']['meta']['href'])
-                    : 'Не указан';
-            }
-
-            return $orders;
-        } catch (RequestException $e) {
-            return $this->handleError($e);
-        }
-    }
-    // Получение одного заказа по ID
-    public function getOrderById($id)
+    private function batchGetNames(array $hrefs): array
     {
-        try {
-            $response = $this->client->get("entity/customerorder/{$id}");
-            return json_decode($response->getBody(), true);
-        } catch (RequestException $e) {
-            return $this->handleError($e);
-        }
-    }
-    // Создание заказа
-    public function createOrder($data)
-    {
-        try {
-            $response = $this->client->post('entity/customerorder', ['json' => $data]);
-            return json_decode($response->getBody(), true);
-        } catch (RequestException $e) {
-            return $this->handleError($e);
-        }
-    }
-    // Обновление заказа
-    public function updateOrder($id, $data)
-    {
-        try {
-            $response = $this->client->put("entity/customerorder/{$id}", ['json' => $data]);
-            return json_decode($response->getBody(), true);
-        } catch (RequestException $e) {
-            return $this->handleError($e);
-        }
-    }
-    // Удаление заказа
-    public function deleteOrder($id)
-    {
-        try {
-            $this->client->delete("entity/customerorder/{$id}");
-            return ['success' => true];
-        } catch (RequestException $e) {
-            return $this->handleError($e);
-        }
-    }
-    // Получение товара
-    public function getProducts()
-    {
-        $response = $this->client->get('entity/product');
-        return json_decode($response->getBody(), true)['rows'];
-    }
-    // Получение списка контрагентов
-    public function getAgents()
-    {
-        try {
-            $response = $this->client->get('entity/counterparty');
-            return json_decode($response->getBody(), true)['rows'];
-        } catch (RequestException $e) {
+        if (empty($hrefs)) {
             return [];
         }
-    }
-    // Получение организации
-    public function getOrganizationMeta()
-    {
-        try {
-            $response = $this->client->get('entity/organization');
-            $data = json_decode($response->getBody(), true);
-            return $data['rows'][0]['meta'] ?? null;
-        } catch (RequestException $e) {
-            return null;
+        $responses = [];
+        foreach ($hrefs as $href) {
+            $response = $this->request('GET', $href);
+            if (isset($response['name'])) {
+                $responses[$href] = $response['name'];
+            }
         }
-    }
-    // Обработка ошибок
-    private function handleError(RequestException $e)
-    {
-        return [
-            'error' => true,
-            'message' => $e->getResponse() ? $e->getResponse()->getBody()->getContents() : $e->getMessage(),
-        ];
+        return $responses;
     }
 
-    // Получение названия контрагента по meta.href
-    public function getCounterpartyName($href)
+    private function getEntityName(?string $href, array $names = []): string
     {
-        try {
-            $response = $this->client->get($href);
-            $data = json_decode($response->getBody(), true);
-            return $data['name'] ?? 'Не указан';
-        } catch (RequestException $e) {
-            return 'Не указан';
+        if ($href && isset($names[$href])) {
+            return $names[$href];
         }
+        return 'Не указан';
     }
-    // Получение названия статуса по meta.href
-    public function getStateName($href)
+
+    public function getOrganizations()
     {
-        try {
-            $response = $this->client->get($href);
-            $data = json_decode($response->getBody(), true);
-            return $data['name'] ?? 'Не указан';
-        } catch (RequestException $e) {
-            return 'Не указан';
-        }
+        return $this->request('GET', 'entity/organization')['rows'] ?? [];
     }
+    
+    public function getSalesChannels()
+    {
+        return $this->request('GET', 'entity/saleschannel')['rows'] ?? [];
+    }
+    
+    public function getProjects()
+    {
+        return $this->request('GET', 'entity/project')['rows'] ?? [];
+    }
+    
+    public function getProducts()
+    {
+        return $this->request('GET', 'entity/product')['rows'] ?? [];
+    }
+    
+    public function getRetailCustomerId(): ?string
+    {
+        $response = $this->request('GET', 'entity/counterparty', [
+            'query' => ['filter=name=Розничный покупатель']
+        ]);
+
+        if (!empty($response['rows'][0]['id'])) {
+            return $response['rows'][0]['id'];
+        }
+
+        return null;
+    }
+    
 }

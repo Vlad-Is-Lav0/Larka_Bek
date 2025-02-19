@@ -1,174 +1,255 @@
 <template>
   <div>
-    <h1>{{ isEditMode ? "Редактировать заказ" : "Создать заказ" }}</h1>
-
+    <h1 class="mb-4">{{ isEditMode ? "Редактировать заказ" : "Создать заказ" }}</h1>
     <v-form @submit.prevent="submitOrder">
-      <div class="input-group mb-3">
-        <span class="input-group-text">Контрагент</span>
-        <select class="form-select" v-model="order.agent" required>
-          <option disabled value="">Выберите контрагента</option>
-          <option v-for="agent in meta.agents" :key="agent.id" :value="agent.meta.href">
-            {{ agent.name }}
-          </option>
-        </select>
+      <!-- Контейнер для выбора организации -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <strong>Выберите организацию</strong>
+        </div>
+        <div class="card-body">
+          <v-select
+            v-model="order.organization"
+            :items="organizationList"
+            item-title="name"
+            item-value="id"
+            label="Выберите организацию"
+            required
+            class="fixed-select"
+          ></v-select>
+        </div>
       </div>
-      <h3>Товары:</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Товар</th>
-            <th>Цена</th>
-            <th>Кол-во</th>
-            <th>Сумма</th>
-            <th>Действие</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(item, index) in order.items" :key="index">
-            <td>
-              <select class="form-select" v-model="item.product" required>
-                <option disabled value="">Выберите товар</option>
-                <option v-for="product in meta.products" :key="product.id" :value="product.meta.href">
-                  {{ product.name }}
-                </option>
-              </select>
-            </td>
-            <td>{{ (getProductPrice(item.product) / 100).toFixed(2) }} ₽</td>
-            <td><input type="number" class="form-control" v-model.number="item.quantity" min="1" required /></td>
-            <td>{{ ((getProductPrice(item.product) * item.quantity) / 100).toFixed(2) }} ₽</td>
-            <td><button class="btn btn-danger" @click="removeItem(index)">❌</button></td>
-          </tr>
-        </tbody>
-      </table>
-      <button class="btn btn-primary" @click="addItem">➕ Добавить товар</button>
 
-      <h3>Общая сумма: {{ totalSum.toFixed(2) }} ₽</h3>
-
-      <div class="d-flex justify-content-between mt-3">
-        <v-btn type="submit" color="primary">{{ isEditMode ? "Сохранить" : "Создать" }}</v-btn>
-        <v-btn v-if="isEditMode" @click="deleteOrder" variant="outlined" color="red">Удалить</v-btn>
+      <!-- Контейнер для выбора канала продаж -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <strong>Выберите канал продаж</strong>
+        </div>
+        <div class="card-body">
+          <v-select 
+            v-model="order.salesChannel"
+            :items="salesChannelList" 
+            item-title="name"
+            item-value="id"
+            label="Выберите канал продаж" 
+            required
+            class="fixed-select"
+          ></v-select>
+        </div>
       </div>
+
+      <!-- Контейнер для выбора проекта -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <strong>Выберите проект</strong>
+        </div>
+        <div class="card-body">
+          <v-select 
+            v-model="order.project"
+            :items="projectList" 
+            item-title="name"
+            item-value="id"
+            label="Выберите проект"
+            class="fixed-select"
+          ></v-select>
+        </div>
+      </div>
+
+      <!-- Блок с товарами -->
+      <div class="mb-4">
+        <h3 class="mb-3">Товары:</h3>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Товар</th>
+              <th>Кол-во</th>
+              <th>Цена</th>
+              <th>Сумма</th>
+              <th>Действие</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(item, index) in (order?.items || [])" :key="index">
+              <td>
+                <v-select 
+                  v-model="item.product"
+                  :items="products"
+                  item-value="id"
+                  item-title="name"
+                  label="Выберите товар"
+                  required
+                  class="fixed-select"
+                  @update:modelValue="updateItemPrice(item)"
+                ></v-select>
+              </td>
+              <td>
+                <input type="number" v-model.number="item.quantity" min="1" class="form-control" required />
+              </td>
+              <td>{{ formatPrice(item.price) }} ₸</td>
+              <td>{{ formatPrice(item.quantity * item.price) }} ₸</td>
+              <td>
+                <button class="btn btn-danger" @click="removeItem(index)">❌</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <button class="btn btn-outline-primary" type="button" @click="addItem">Добавить товар</button>
+      </div>
+
+      <!-- Общая сумма -->
+      <div class="mb-4">
+        <h3>Общая сумма: {{ formatPrice(totalSum) }} ₸</h3>
+      </div>
+
+      <!-- Кнопка отправки формы -->
+      <v-btn type="submit" color="primary" class="mt-4">{{ isEditMode ? "Сохранить" : "Создать" }}</v-btn>
     </v-form>
   </div>
 </template>
 
 <script>
-import axios from "axios";
+import axios from 'axios';
 
 export default {
   data() {
     return {
+      isEditMode: false,
       order: {
-        agent: "",
-        items: [],
-        status: "",
-        createdAt: "",
+        id: null,
+        organization: null,
+        salesChannel: null,
+        project: null,
+        agent: null,
+        items: []
       },
-      meta: {
-        agents: [],
-        products: [],
-      },
+      retailCustomerId: "1e999adb-d141-11ec-0a80-075e00bbab3a",
+      organizations: [],
+      salesChannels: [],
+      projects: [],
+      products: []
     };
   },
   computed: {
-    isEditMode() {
-      return !!this.$route.params.id;
-    },
     totalSum() {
-      return this.order.items.reduce(
-        (sum, item) => sum + (this.getProductPrice(item.product) * item.quantity) / 100,
-        0
-      );
+      return this.order.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
     },
+    organizationList() {
+      return Array.isArray(this.organizations) ? this.organizations : [];
+    },
+    salesChannelList() {
+      return Array.isArray(this.salesChannels) ? this.salesChannels : [];
+    },
+    projectList() {
+      return Array.isArray(this.projects) ? this.projects : [];
+    }
   },
   methods: {
-    async fetchMeta() {
+    async fetchData(endpoint, target) {
       try {
-        const response = await axios.get("/api/orders/meta");
-        this.meta = response.data;
+        const response = await axios.get(endpoint);
+        this[target] = response.data;
       } catch (error) {
-        console.error("Ошибка загрузки справочников:", error);
+        console.error(`Ошибка при получении данных (${endpoint}):`, error);
+        alert(`Ошибка при загрузке данных.`);
       }
     },
-    getProductPrice(productHref) {
-      const product = this.meta.products.find((p) => p.meta.href === productHref);
-      return product ? product.salePrices[0]?.value || 0 : 0;
+    fetchOrganizations() {
+      this.fetchData('/api/order/meta/organizations', 'organizations');
+    },
+    fetchSalesChannels() {
+      this.fetchData('/api/order/meta/saleschannels', 'salesChannels');
+    },
+    fetchProjects() {
+      this.fetchData('/api/order/meta/projects', 'projects');
+    },
+    fetchProducts() {
+      this.fetchData('/api/order/meta/products', 'products');
+    },
+    getProductPrice(productId) {
+      const product = this.products.find(p => p.id === productId);
+      return product ? (product.salePrices?.[0]?.value / 100 || product.price / 100 || 0) : 0;
+    },
+    updateItemPrice(item) {
+      if (item.product) {
+        item.price = this.getProductPrice(item.product);
+      }
+    },
+    formatPrice(value) {
+      return value ? value.toFixed(2) : '0.00';
+    },
+    async submitOrder() {
+      try {
+        let orderData = {
+          name: "Заказ №123",
+          organization: this.order.organization,
+          agent: this.order.agent && this.order.agent.meta 
+              ? this.order.agent 
+              : { meta: { href: `/api/entity/counterparty/${this.retailCustomerId}` } },
+          positions: this.order.items.map(item => ({
+            quantity: item.quantity,
+            price: item.price * 100,
+            assortment: { meta: { href: `/api/entity/product/${item.product}` } }
+          }))
+        };
+
+        let response;
+        if (this.isEditMode && this.order.id) {
+          response = await axios.put(`/api/orders/${this.order.id}`, orderData);
+        } else {
+          response = await axios.post('/api/orders', orderData);
+        }
+
+        console.log('Заказ успешно сохранён:', response.data);
+      } catch (error) {
+        console.error('Ошибка при сохранении заказа:', error);
+      }
     },
     addItem() {
-      this.order.items.push({ product: "", quantity: 1 });
+      this.order.items.push({ product: null, quantity: 1, price: 0 });
     },
     removeItem(index) {
       this.order.items.splice(index, 1);
     },
-    async fetchOrder() {
-  if (!this.isEditMode) return;
-  try {
-    // Запрашиваем сам заказ
-    const response = await axios.get(`/api/orders/${this.$route.params.id}`);
-    console.log("Ответ API на получение заказа:", response.data);
-
-    this.order = {
-      agent: response.data.agent?.meta?.href || "",
-      items: [], // Пока пустой массив, заполним после второго запроса
-      status: response.data.state?.name || "",
-    };
-
-    // Если у заказа есть позиции, делаем второй запрос
-    if (response.data.positions?.meta?.href) {
-      const positionsResponse = await axios.get(response.data.positions.meta.href);
-      console.log("Ответ API на позиции заказа:", positionsResponse.data);
-
-      // Проверяем, есть ли позиции
-      if (Array.isArray(positionsResponse.data.rows)) {
-        this.order.items = positionsResponse.data.rows.map((pos) => ({
-          product: pos.assortment?.meta?.href || "",
-          quantity: pos.quantity || 1,
-        }));
-      }
+    fetchOrderDetails() {
+    const orderId = this.$route.params.id;
+    if (!orderId) {
+        console.error("Ошибка: orderId не найден в маршруте");
+        return;
     }
-  } catch (error) {
-    console.error("Ошибка загрузки заказа:", error);
+
+    axios.get(`/api/orders/${orderId}`)
+        .then(response => {
+            this.order = response.data || {}; 
+            if (!this.order.items) {
+                this.order.items = [];
+            }
+        })
+        .catch(error => {
+            console.error("Ошибка при загрузке заказа:", error);
+            this.order = { items: [] }; // Если API не ответило, устанавливаем пустой массив
+        });
+}
+
+  },
+  mounted() {
+    if (this.$route.params.id) {
+      this.isEditMode = true;
+      this.fetchOrderDetails();
+    }
+    this.fetchOrganizations();
+    this.fetchSalesChannels();
+    this.fetchProjects();
+    this.fetchProducts();
   }
-},
-
-    async submitOrder() {
-      try {
-        const payload = {
-          agent: this.order.agent,
-          items: this.order.items.map((item) => ({
-            product: item.product,
-            quantity: item.quantity,
-            price: this.getProductPrice(item.product),
-          })),
-        };
-
-        if (this.isEditMode) {
-          await axios.put(`/api/orders/${this.$route.params.id}`, payload);
-        } else {
-          await axios.post("/api/orders", payload);
-        }
-
-        this.$router.push("/orders");
-      } catch (error) {
-        console.error("Ошибка сохранения заказа:", error);
-      }
-    },
-    async deleteOrder() {
-      if (confirm("Вы уверены, что хотите удалить заказ?")) {
-        try {
-          await axios.delete(`/api/orders/${this.$route.params.id}`);
-          this.$router.push("/orders");
-        } catch (error) {
-          console.error("Ошибка удаления заказа:", error);
-        }
-      }
-    },
-  },
-  async mounted() {
-    await this.fetchMeta();
-    if (this.isEditMode) {
-      await this.fetchOrder();
-    }
-  },
 };
 </script>
+
+<style>
+.v-list-item__content {
+  max-width: 400px;
+  min-width: 400px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+</style>

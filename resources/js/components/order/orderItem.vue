@@ -4,7 +4,7 @@
     <td>{{ order.agentName || "Не указан" }}</td>
     <td>{{ formatDate(order.moment) }}</td>
     <td>{{ order.stateName || "Не указан" }}</td>
-    <td>{{ (order.sum / 100).toFixed(2) }} ₽</td>
+    <td>{{ (order.sum).toFixed(2) }} ₽</td>
   </tr>
 </template>
 

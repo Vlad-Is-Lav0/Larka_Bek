@@ -1,2 +1,38 @@
 @import '~vuetify/styles';
 @import '~@mdi/font/css/materialdesignicons.min.css';
+.fixed-select {
+    max-width: 300px;
+    min-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    height: 40px; /* Фиксированная высота */
+    line-height: 40px; /* Выравнивание текста по центру */
+  }
+  
+  .card-header {
+    background-color: #f8f9fa;
+    font-weight: bold;
+  }
+  
+  .card-body {
+    padding: 1.5rem;
+  }
+  
+  .table th, .table td {
+    vertical-align: middle;
+    text-align: center;
+  }
+  
+  .table-bordered {
+    border: 1px solid #ddd;
+  }
+  
+  .table-bordered th, .table-bordered td {
+    border: 1px solid #ddd;
+  }
+  
+  .mb-4 {
+    margin-bottom: 1.5rem;
+  }

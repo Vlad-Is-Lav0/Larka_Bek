@@ -38,3 +38,10 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     Route::post('/orders',                   [OrderController::class, 'store']);
     Route::put('/orders/{id}',               [OrderController::class, 'update']);
     Route::delete('/orders/{id}',            [OrderController::class, 'destroy']);
+
+    Route::get('/order/meta/organizations', [OrderController::class, 'getOrganizations']);
+    Route::get('/order/meta/saleschannels', [OrderController::class, 'getSalesChannels']);
+    Route::get('/order/meta/projects', [OrderController::class, 'getProjects']);
+    Route::get('/order/meta/products', [OrderController::class, 'getProducts']);
+    
+
