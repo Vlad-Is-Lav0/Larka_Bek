@@ -1,12 +1,15 @@
 <template>
   <v-app>
     <!-- Боковое меню -->
-    <v-navigation-drawer v-model="drawer" app class="custom-drawer">
+    <v-navigation-drawer v-model="drawer" app class="custom-drawer" >
       <v-list>
         <!-- Заголовок меню -->
         <v-list-item class="drawer-header">
           <v-list-item-avatar>
-            <v-img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwsC_tWIRSU4HdwTeytM-7bg4GJvMUlPSPHg&s" />
+            <v-img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwsC_tWIRSU4HdwTeytM-7bg4GJvMUlPSPHg&s"
+            contain
+            max-width="225"
+            max-height="225"/>
           </v-list-item-avatar>
           <v-list-item-content>
             <v-list-item-title class="text-h6 font-weight-bold">Smart Innovations</v-list-item-title>
@@ -155,4 +158,8 @@ export default {
   border-radius: 12px;
   padding: 20px;
 }
+.v-list-item-title {
+  text-align: left;
+}
+
 </style>

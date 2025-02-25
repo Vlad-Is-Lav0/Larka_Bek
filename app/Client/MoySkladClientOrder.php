@@ -5,11 +5,12 @@ namespace App\Client;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Arr;
+use GuzzleHttp\Promise\Utils;
+
 
 class MoySkladClientOrder
 {
-    private $client;
+    public Client $client;
     private $token;
     private $accountId;
 
@@ -26,142 +27,94 @@ class MoySkladClientOrder
             ],
         ]);
     }
-
-    public function getOrders(): array
+    public function getOrders($limit = 20, $offset = 0)
     {
-        $response = $this->request('GET', 'entity/customerorder', [
-            'query' => ['expand' => 'agent,state']
+        $response = $this->client->get('entity/customerorder', [
+            'query' => [
+                'expand' => 'agent,state',
+                'limit' => $limit,
+                'offset' => $offset
+            ]
         ]);
-
-        if (Arr::get($response, 'rows') === null) {
-            return ['error' => true, 'message' => 'Ошибка получения заказов', 'details' => $response];
+        
+        $data = json_decode($response->getBody(), true);
+        $orders = $data['rows'];
+        $total = $data['meta']['size']; // Общее количество заказов
+    
+        $agentHrefs = array_unique(array_filter(array_map(fn($order) => $order['agent']['meta']['href'] ?? null, $orders)));
+        $stateHrefs = array_unique(array_filter(array_map(fn($order) => $order['state']['meta']['href'] ?? null, $orders)));
+    
+        $agents = $this->batchGetNames($agentHrefs);
+        $states = $this->batchGetNames($stateHrefs);
+    
+        foreach ($orders as &$order) {
+            $order['agent'] = $this->getEntityName($order['agent']['meta']['href'] ?? null, $agents);
+            $order['state'] = $this->getEntityName($order['state']['meta']['href'] ?? null, $states);
         }
-
-        $agentIds = array_unique(array_filter(array_map(fn($order) => Arr::get($order, 'agent.meta.href'), $response['rows'])));
-        $stateIds = array_unique(array_filter(array_map(fn($order) => Arr::get($order, 'state.meta.href'), $response['rows'])));
-
-        $agents = $this->batchGetNames($agentIds);
-        $states = $this->batchGetNames($stateIds);
-
-        return array_map(fn($order) => [
-            'id'        => $order['id'] ?? null,
-            'moment'    => $order['moment'] ?? null,
-            'sum'       => isset($order['sum']) ? $order['sum'] / 100 : 0.0,
-            'agentName' => $this->getEntityName($order['agent']['meta']['href'] ?? null, $agents),
-            'stateName' => $this->getEntityName($order['state']['meta']['href'] ?? null, $states),
-        ], $response['rows']);
-    }
-
-    public function getOrderById(string $id): ?array
-    {
-        return $this->request('GET', "entity/customerorder/{$id}");
-    }
-
-    public function createOrder(array $data): ?array
-    {
-        return $this->request('POST', 'entity/customerorder', ['json' => $data]);
-    }
-
-    public function updateOrder(string $id, array $data): ?array
-    {
-        return $this->request('PUT', "entity/customerorder/{$id}", ['json' => $data]);
-    }
-
-    public function deleteOrder(string $id): array
-    {
-        $response = $this->request('DELETE', "entity/customerorder/{$id}");
-        return $response['error'] ?? false ? $response : ['success' => true];
-    }
-
-    public function getAgents(): array
-    {
-        return $this->request('GET', 'entity/counterparty')['rows'] ?? [];
-    }
-
-    private function request(string $method, string $uri, array $options = []): ?array
-    {
-        Log::info("Запрос к МойСклад", [
-            'method'  => $method,
-            'uri'     => $uri,
-            'options' => $options
-        ]);
     
-        try {
-            $response = $this->client->request($method, $uri, $options);
-            return json_decode($response->getBody()->getContents(), true);
-        } catch (RequestException $e) {
-            $errorMessage = $e->hasResponse()
-                ? json_decode($e->getResponse()->getBody()->getContents(), true)
-                : ['message' => $e->getMessage()];
-    
-            Log::error("Ошибка запроса к API", [
-                'method'  => $method,
-                'uri'     => $uri,
-                'error'   => $errorMessage
-            ]);
-    
-            return [
-                'error'   => true,
-                'message' => 'Ошибка запроса к API',
-                'details' => $errorMessage
-            ];
-        }
+        return [
+            'orders' => $orders,
+            'total' => $total,
+        ];
     }
-
+    /**
+     * Получает имена сущностей по их ссылкам
+     */
     private function batchGetNames(array $hrefs): array
     {
-        if (empty($hrefs)) {
-            return [];
-        }
-        $responses = [];
+        $promises = [];
         foreach ($hrefs as $href) {
-            $response = $this->request('GET', $href);
-            if (isset($response['name'])) {
-                $responses[$href] = $response['name'];
+            $promises[$href] = $this->client->getAsync($href);
+        }
+        $responses = Utils::settle($promises)->wait();  
+        $names = [];
+        foreach ($responses as $href => $response) {
+            if ($response['state'] === 'fulfilled') {
+                $data = json_decode($response['value']->getBody(), true);
+                if (!empty($data['name'])) {
+                    $names[$href] = $data['name'];
+                }
             }
-        }
-        return $responses;
+        } 
+        return $names;
     }
-
-    private function getEntityName(?string $href, array $names = []): string
+    /**
+     * Получает имя по href, если его нет — возвращает "Не указан"
+     */
+    private function getEntityName(?string $href, array $names): string
     {
-        if ($href && isset($names[$href])) {
-            return $names[$href];
-        }
-        return 'Не указан';
+        return $href && isset($names[$href]) ? $names[$href] : 'Не указан';
     }
-
-    public function getOrganizations()
+    public function getOrderById(string $id)
     {
-        return $this->request('GET', 'entity/organization')['rows'] ?? [];
-    }
-    
-    public function getSalesChannels()
-    {
-        return $this->request('GET', 'entity/saleschannel')['rows'] ?? [];
-    }
-    
-    public function getProjects()
-    {
-        return $this->request('GET', 'entity/project')['rows'] ?? [];
-    }
-    
-    public function getProducts()
-    {
-        return $this->request('GET', 'entity/product')['rows'] ?? [];
-    }
-    
-    public function getRetailCustomerId(): ?string
-    {
-        $response = $this->request('GET', 'entity/counterparty', [
-            'query' => ['filter=name=Розничный покупатель']
+        $response = $this->client->get("entity/customerorder/{$id}", [
+            'query' => ['expand' => 'positions.assortment']
         ]);
-
-        if (!empty($response['rows'][0]['id'])) {
-            return $response['rows'][0]['id'];
-        }
-
-        return null;
+        $order = json_decode($response->getBody(), true);
+        // Оставляем только нужные данные по товарам
+        $order['positions'] = array_map(function ($position) {
+            return [
+                'name' => $position['assortment']['name'] ?? 'Неизвестный товар',
+                'quantity' => $position['quantity'],
+                'price' => $position['price'] / 100, // Цена хранится в копейках
+                'sum' => ($position['price'] * $position['quantity']) / 100
+            ];
+        }, $order['positions']['rows'] ?? []);
+        return $order;
     }
-    
+    public function createOrder(array $data)
+    {
+        $response = $this->client->post('entity/customerorder', ['json' => $data]);
+        return json_decode($response->getBody(), true);
+    }
+    public function updateOrder(string $id, array $data)
+    {
+        $response = $this->client->put("entity/customerorder/{$id}", ['json' => $data]);
+        return json_decode($response->getBody(), true);
+    }
+    public function deleteOrder(string $id)
+    {
+        $this->client->delete("entity/customerorder/{$id}");
+        return true;
+    }
 }

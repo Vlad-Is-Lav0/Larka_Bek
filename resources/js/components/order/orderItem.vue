@@ -1,10 +1,10 @@
 <template>
   <tr @click="$emit('edit', order.id)" style="cursor: pointer;" class="hover-row">
     <td>{{ index }}</td>
-    <td>{{ order.agentName || "Не указан" }}</td>
+    <td>{{ order.agent }}</td>
     <td>{{ formatDate(order.moment) }}</td>
-    <td>{{ order.stateName || "Не указан" }}</td>
-    <td>{{ (order.sum).toFixed(2) }} ₽</td>
+    <td>{{ order.state }}</td>
+    <td>{{ (order.sum / 100).toFixed(2) }} ₽</td>
   </tr>
 </template>
 

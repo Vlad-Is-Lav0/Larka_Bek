@@ -20,9 +20,13 @@ class OrderController extends Controller
         $this->msClient = new MoySkladClientOrder($settings->ms_token, $settings->accountId);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $orders = $this->msClient->getOrders();
+        $limit = $request->query('limit', 20);
+        $page = $request->query('page', 1);
+        $offset = ($page - 1) * $limit;
+    
+        $orders = $this->msClient->getOrders($limit, $offset);
         return response()->json($orders, isset($orders['error']) ? 500 : 200);
     }
 
@@ -47,17 +51,12 @@ class OrderController extends Controller
                 'positions.*.assortment.meta.href' => 'required|string', // Исправлено!
             ]);
     
-            $counterpartyId = $this->msClient->getRetailCustomerId();
+            $counterpartyId = $this->getRetailCustomerId();
             if (!$counterpartyId) {
                 return response()->json(['error' => 'Не удалось получить ID розничного покупателя'], 500);
             }
     
             $orderData = [
-                'name' => 'Заказ №' . time(),
-'moment' => isset($validated['moment']) 
-    ? date('Y-m-d H:i:s', strtotime($validated['moment'])) 
-    : now()->format('Y-m-d H:i:s'),
-
                 'organization' => [
                     'meta' => [
                         'href' => "https://api.moysklad.ru/api/remap/1.2/entity/organization/" . $validated['organization'],
@@ -72,10 +71,24 @@ class OrderController extends Controller
                         'mediaType' => 'application/json'
                     ]
                 ],
+                'salesChannel' => !empty($validated['salesChannel']) ? [
+                    'meta' => [
+                        'href' => "https://api.moysklad.ru/api/remap/1.2/entity/saleschannel/" . $validated['salesChannel'],
+                        'type' => 'saleschannel',
+                        'mediaType' => 'application/json'
+                    ]
+                ] : null,
+                'project' => !empty($validated['project']) ? [
+                    'meta' => [
+                        'href' => "https://api.moysklad.ru/api/remap/1.2/entity/project/" . $validated['project'],
+                        'type' => 'project',
+                        'mediaType' => 'application/json'
+                    ]
+                ] : null,
 'positions' => array_map(function ($item) {
     return [
         'quantity' => $item['quantity'],
-        'price' => (int) ($item['price'] * 100),
+        'price' => (int) ($item['price']),
         'assortment' => [
             'meta' => [
                 'href' => strpos($item['assortment']['meta']['href'], 'https://') === 0 
@@ -101,36 +114,55 @@ class OrderController extends Controller
 
     public function update(Request $request, string $id)
     {
-        try {
+        ///try {
             $validated = $request->validate([
-                'description' => 'nullable|string|max:255',
-                'moment' => 'nullable|date_format:Y-m-d\TH:i:sO',
-                'salesChannel' => 'nullable|string',
-                'project' => 'nullable|string',
-                'positions' => 'required|array|min:1',
-                'positions.*.quantity' => 'required|integer|min:1',
-                'positions.*.price' => 'required|numeric|min:0',
-                'positions.*.product' => 'required|string',
+                'moment'        => 'nullable|date_format:Y-m-d\TH:i:sO',
+                'salesChannel'  => 'nullable|string',
+                'project'       => 'nullable|string',
+                'positions'     => 'required|array|min:1',
+                'positions.*.quantity'      => 'required|integer|min:1',
+                'positions.*.price'         => 'required|numeric|min:0',
+                'positions.*.assortment'    => 'required|array',
             ]);
-
+        
             $existingOrder = $this->msClient->getOrderById($id);
             if (isset($existingOrder['error'])) {
                 return response()->json(['error' => 'Не удалось получить текущий заказ'], 500);
             }
+            
+        
+            $description = '';
+            if (isset($existingOrder['description']))   $description = $existingOrder['description'];
+            if (isset($validated['description']))       $description = $validated['description'];
 
             $orderData = [
-                'description' => $validated['description'] ?? $existingOrder['description'],
+                'description' => $description,
                 'moment' => isset($validated['moment']) 
                     ? date('Y-m-d\TH:i:sO', strtotime($validated['moment'])) 
                     : ($existingOrder['moment'] ?? now()->format('Y-m-d\TH:i:sO')),
                 'organization' => $existingOrder['organization'] ?? null,
+                'salesChannel' => !empty($validated['salesChannel']) ? [
+                    'meta' => [
+                        'href' => "https://api.moysklad.ru/api/remap/1.2/entity/saleschannel/" . $validated['salesChannel'],
+                        'type' => 'saleschannel',
+                        'mediaType' => 'application/json'
+                    ]
+                ] : null,
+                'project' => !empty($validated['project']) ? [
+                    'meta' => [
+                        'href' => "https://api.moysklad.ru/api/remap/1.2/entity/project/" . $validated['project'],
+                        'type' => 'project',
+                        'mediaType' => 'application/json'
+                    ]
+                ] : null,
                 'positions' => array_map(function ($item) {
+                
                     return [
                         'quantity' => $item['quantity'],
                         'price' => (int) ($item['price'] * 100),
                         'assortment' => [
                             'meta' => [
-                                'href' => "https://api.moysklad.ru/api/remap/1.2/entity/product/" . $item['product'],
+                                'href' => "https://api.moysklad.ru/api/remap/1.2/entity/product/" .  basename($item['assortment']['meta']['href']),
                                 'type' => 'product',
                                 'mediaType' => 'application/json'
                             ]
@@ -138,13 +170,14 @@ class OrderController extends Controller
                     ];
                 }, $validated['positions'])
             ];
-
+          
             $response = $this->msClient->updateOrder($id, $orderData);
             return response()->json($response, 200);
-        } catch (\Exception $e) {
-            Log::error('Ошибка при обновлении заказа:', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Ошибка при обновлении заказа'], 500);
-        }
+       // } catch (\Exception $e) {
+       //     dd($e->getMessage());
+       //     Log::error('Ошибка при обновлении заказа:', ['error' => $e->getMessage()]);
+       //     return response()->json(['error' => 'Ошибка при обновлении заказа'], 500);
+       // }
     }
 
     public function destroy(string $id)
@@ -158,47 +191,58 @@ class OrderController extends Controller
         }
     }
 
-    public function getOrganizations()
+    public function getEntities($entity)
     {
         try {
-            $organizations = $this->msClient->getOrganizations();
-            return response()->json($organizations);
-        } catch (\Exception $e) {
-            Log::error('Ошибка при загрузке организаций: ' . $e->getMessage());
-            return response()->json(['error' => 'Ошибка при загрузке организаций'], 500);
+            $response = $this->msClient->client->get("entity/{$entity}");
+            $data = json_decode($response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+    
+            return response()->json($data['rows'] ?? []); // Убираем обёртку в 'rows'
+        } catch (\Throwable $e) {
+            Log::error("Ошибка при получении {$entity}: " . $e->getMessage());
+            abort(500, "Ошибка при получении {$entity}");
         }
+    }
+    
+
+    public function getOrganizations()
+    {
+        return $this->getEntities('organization');
     }
 
     public function getSalesChannels()
     {
-        try {
-            $salesChannels = $this->msClient->getSalesChannels();
-            return response()->json($salesChannels);
-        } catch (\Exception $e) {
-            Log::error('Ошибка при загрузке каналов продаж: ' . $e->getMessage());
-            return response()->json(['error' => 'Ошибка при загрузке каналов продаж'], 500);
-        }
+        return $this->getEntities('saleschannel');
     }
-
+    
     public function getProjects()
     {
-        try {
-            $projects = $this->msClient->getProjects();
-            return response()->json($projects);
-        } catch (\Exception $e) {
-            Log::error('Ошибка при загрузке проектов: ' . $e->getMessage());
-            return response()->json(['error' => 'Ошибка при загрузке проектов'], 500);
-        }
+        return $this->getEntities('project');
     }
-
+    
     public function getProducts()
     {
+        return $this->getEntities('product');
+    }
+    
+    public function getAgents()
+    {
+        return $this->getEntities('counterparty');
+    }
+    
+    // Получение ID контрагента "Розничный покупатель"
+    public function getRetailCustomerId(): ?string
+    {
         try {
-            $products = $this->msClient->getProducts();
-            return response()->json($products);
+            $response = $this->msClient->client->get('entity/counterparty?filter=name=Розничный покупатель');
+            $data = json_decode($response->getBody(), true);
+    
+            return $data['rows'][0]['id'] ?? null;
         } catch (\Exception $e) {
-            Log::error('Ошибка при загрузке товаров: ' . $e->getMessage());
-            return response()->json(['error' => 'Ошибка при загрузке товаров'], 500);
+            Log::error('Ошибка при получении ID розничного покупателя: ' . $e->getMessage());
+            return null;
         }
     }
+    
+    
 }
